@@ -41,8 +41,10 @@ cleanup() {  # under set -e, so every step may fail quietly (the processes may b
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
-for _ in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$TUNNEL_PORT/" && break; sleep 1; done
-curl -s -o /dev/null "http://127.0.0.1:$TUNNEL_PORT/" || { echo "ComfyUI on $HOST:$REMOTE_PORT is not reachable through the tunnel" >&2; exit 1; }
+echo "connecting to ComfyUI on $HOST:$REMOTE_PORT..."
+reachable() { curl -s --max-time 5 -o /dev/null "http://127.0.0.1:$TUNNEL_PORT/"; }
+for _ in $(seq 1 15); do reachable && break; kill -0 $TUNNEL 2>/dev/null || break; sleep 1; done
+reachable || { echo "ComfyUI on $HOST:$REMOTE_PORT is not reachable. Is it running there? (systemctl --user start comfyui, or ./run.sh)" >&2; exit 1; }
 
 # --cpu: nothing is computed here, so don't claim this machine's GPU. Own asset database per port (an index of
 # the local files), so this can run next to this machine's own ComfyUI and other clients
