@@ -34,7 +34,7 @@ find "$NAME" -mindepth 1 \
   \( -path "$NAME/.venv" -o -path "$NAME/.uv" -o -path "$NAME/.cache" -o -path "$NAME/.tmp" \
      -o -path "$C/temp" -o -name __pycache__ -o -name '*.tar.gz' \) -prune -o \
   \( -type f -o -type l \) -print |
-  grep -vE "^$C/user/comfyui\.db" |
+  grep -vE "^$C/user/comfyui(-client)?\.db" |
   { if [[ $MODELS == 1 ]]; then cat; else grep -vE "^$C/models/.*\.(safetensors|ckpt|pt|pth|bin|gguf|sft|onnx)$"; fi; } |
   { if [[ $IMAGES == 1 ]]; then cat; else grep -vE "^$C/(input|output)/" || true; fi; } > "$LIST"
 if [[ $IMAGES == 0 ]]; then
