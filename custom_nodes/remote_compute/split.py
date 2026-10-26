@@ -16,6 +16,9 @@ SOURCE_CLASSES = {
     "LoadImage", "LoadImageMask", "LoadImageOutput", "LoadImageFolderBatch", "LoadVideo", "LoadAudio",
     "LoadImageSetFromFolderNode", "LoadImageTextSetFromFolderNode",
 }
+# Output nodes that write no files: when their result also feeds nodes on the compute server (a text preview
+# passing the text on), they run there as well as here (for the display).
+FILE_FREE_OUTPUTS = {"PreviewAny"}
 # Output nodes whose image inputs end up 8-bit: long frame batches may travel as uint8 for them.
 EIGHT_BIT_SINKS = {"SaveImage", "PreviewImage", "SaveAnimatedWEBP", "SaveAnimatedPNG", "ImageCompare"}
 
@@ -71,7 +74,7 @@ def split(prompt, is_local_output, is_remote_output, targets=None):
     roots = {c["src"][0] for c in captures.values()} | remote_outputs
     remote_ids = _upstream(prompt, roots, stop=sources) - sources
     for nid in remote_ids:
-        if nid in sinks:  # it would have to run on the server too, and a save node would write to its disk
+        if nid in sinks and prompt[nid]["class_type"] not in FILE_FREE_OUTPUTS:  # a save node would write to its disk
             raise SplitError(f"node {nid} ({prompt[nid]['class_type']}) is a save/preview node whose result feeds nodes that "
                              f"run on the compute server; remote_compute keeps those nodes local, so this can't be split")
 
