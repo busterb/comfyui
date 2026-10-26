@@ -109,7 +109,7 @@ if [[ -f $PROJECT_DIR/ComfyUI/main.py ]]; then
 elif [[ -e $PROJECT_DIR/.git ]]; then  # fresh clone of this repo: ComfyUI is a submodule pinned to a tested commit
   run git -C "$PROJECT_DIR" submodule update --init ComfyUI
 else
-  run git clone --depth 1 https://github.com/comfyanonymous/ComfyUI.git "$PROJECT_DIR/ComfyUI"
+  run git clone --depth 1 https://github.com/Comfy-Org/ComfyUI.git "$PROJECT_DIR/ComfyUI"
 fi
 
 say "uv"
