@@ -21,6 +21,7 @@ import aiohttp
 from aiohttp import web
 
 import comfy.model_management
+import execution
 import nodes
 from server import PromptServer
 
@@ -33,6 +34,7 @@ RELAYED_EVENTS = {"executing", "progress", "progress_state", "execution_cached"}
 REMOTE_MODEL_ROUTES = ("/models", "/experiment/models", "/embeddings")
 # Routes forwarded with any method: "Download missing models to server" should fetch onto the compute server
 REMOTE_ROUTES = ("/server_models/",)
+ORIGINAL_PROMPT = "remote_compute_prompt"  # extra_data key
 
 server = PromptServer.instance
 _object_info = {"t": 0.0, "info": None}
@@ -99,11 +101,36 @@ def rewrite_prompt(json_data):
         return json_data
     if spec is not None:
         json_data["prompt"] = local
+        # Save nodes embed the executed prompt in their files: give them the one that was queued (see below)
+        json_data.setdefault("extra_data", {})[ORIGINAL_PROMPT] = prompt
         if json_data.get("partial_execution_targets") is not None:
             json_data["partial_execution_targets"] = list(json_data["partial_execution_targets"]) + [split.EXEC_ID]
         logging.info(f"remote_compute: {len(spec['remote_ids'])} nodes run on {REMOTE_URL}, "
                      f"{len(local) - len(spec['captures']) - 1} here; {len(spec['inputs'])} values up, {len(spec['captures'])} back")
     return json_data
+
+
+class _QueuedPrompt:
+    """The execution's DynamicPrompt, but its original prompt is the one queued before the split."""
+
+    def __init__(self, dynprompt, prompt):
+        self._dynprompt, self._prompt = dynprompt, prompt
+
+    def get_original_prompt(self):
+        return self._prompt
+
+    def __getattr__(self, name):
+        return getattr(self._dynprompt, name)
+
+
+_get_input_data = execution.get_input_data
+
+
+def _get_input_data_queued(inputs, class_def, unique_id, execution_list=None, dynprompt=None, extra_data={}):
+    """Fills nodes' hidden PROMPT input (the "prompt" metadata of saved images and videos) with the queued prompt."""
+    if dynprompt is not None and ORIGINAL_PROMPT in extra_data:
+        dynprompt = _QueuedPrompt(dynprompt, extra_data[ORIGINAL_PROMPT])
+    return _get_input_data(inputs, class_def, unique_id, execution_list, dynprompt, extra_data)
 
 
 # --- relaying the server's progress to the browser ------------------------------------------------------
@@ -270,4 +297,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {"RemoteComputeExecute": "Run on compute server (in
 
 server.app.middlewares.append(remote_definitions)
 server.add_on_prompt_handler(rewrite_prompt)
+execution.get_input_data = _get_input_data_queued
 logging.info(f"remote_compute: jobs run on {REMOTE_URL}; files stay on this machine")
