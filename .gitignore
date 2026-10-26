@@ -1,0 +1,8 @@
+# Machine-specific or large: rebuilt by setup.sh, or kept out on purpose (.cache holds the Hugging Face token)
+.venv/
+.uv/
+.cache/
+.tmp/
+__pycache__/
+*.tar
+*.tar.gz

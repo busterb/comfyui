@@ -1,0 +1,16 @@
+[Unit]
+Description=ComfyUI (localhost only)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/bcook/projects/comfyui
+ExecStart=/home/bcook/projects/comfyui/run.sh
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=yes
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
