@@ -53,16 +53,15 @@ def split(prompt, is_local_output, is_remote_output, targets=None):
                       if nid not in pre and nid not in sinks and is_remote_output(n.get("class_type"))}
     if targets is not None:
         targets = set(targets)
-        sinks &= targets
+        sinks &= _upstream(prompt, targets & sinks)  # plus output nodes the targets read (save -> compare)
         remote_outputs &= targets
 
-    # Values the local output nodes need from the remote side, deduplicated by (node, slot)
+    # Values the local output nodes need from the remote side, deduplicated by (node, slot). An output node may
+    # read another one (a save node passing its image on to a compare node): both run here.
     captures = {}
     for sid in sorted(sinks):
         for name, v in prompt[sid].get("inputs", {}).items():
-            if _is_link(v) and v[0] not in pre:
-                if v[0] in sinks:
-                    raise SplitError(f"output node {sid} reads output node {v[0]}; chained output nodes aren't supported remotely")
+            if _is_link(v) and v[0] not in pre and v[0] not in sinks:
                 key = f"{v[0]}.{v[1]}"
                 captures.setdefault(key, {"src": v, "eight_bit": prompt[sid]["class_type"] in EIGHT_BIT_SINKS})
                 captures[key]["eight_bit"] &= prompt[sid]["class_type"] in EIGHT_BIT_SINKS
@@ -72,8 +71,9 @@ def split(prompt, is_local_output, is_remote_output, targets=None):
     roots = {c["src"][0] for c in captures.values()} | remote_outputs
     remote_ids = _upstream(prompt, roots, stop=sources) - sources
     for nid in remote_ids:
-        if nid in sinks:
-            raise SplitError(f"node {nid} ({prompt[nid]['class_type']}) is an output node whose result feeds other nodes; not supported remotely")
+        if nid in sinks:  # it would have to run on the server too, and a save node would write to its disk
+            raise SplitError(f"node {nid} ({prompt[nid]['class_type']}) is a save/preview node whose result feeds nodes that "
+                             f"run on the compute server; remote_compute keeps those nodes local, so this can't be split")
 
     # Remote prompt: stand-ins for source outputs, captures for what the local outputs need
     remote, inputs, value_ids = {}, [], {}
@@ -105,7 +105,7 @@ def split(prompt, is_local_output, is_remote_output, targets=None):
     for sid in sinks:
         node = json.loads(json.dumps(prompt[sid]))
         for name, v in node.get("inputs", {}).items():
-            if _is_link(v) and v[0] not in pre:
+            if _is_link(v) and v[0] not in pre and v[0] not in sinks:
                 node["inputs"][name] = [pick_ids[f"{v[0]}.{v[1]}"], 0]
         local[sid] = node
     if len(inputs) > 64:
