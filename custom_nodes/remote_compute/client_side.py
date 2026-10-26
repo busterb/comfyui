@@ -1,6 +1,7 @@
 """Client half: run the browser's jobs on the compute server at COMFYUI_REMOTE_URL, keep files local.
 
-- /object_info (and the model-list routes) come from the compute server, so workflows see its nodes and models.
+- /object_info and the model-list routes come from the compute server, so workflows see its nodes and models, and
+  "Download missing models to server" downloads onto it.
   Nodes that run here (file loaders, save/preview nodes, this pack's own) keep their local definitions.
 - Each queued prompt is split (see split.py): local loaders run here, their outputs are uploaded to the server's
   RAM, the rest runs there, and the results come back into the local save/preview nodes. Progress, node
@@ -30,6 +31,8 @@ UPLOAD_PART = 64 * 1024**2  # stays under the server's default 100 MB --max-uplo
 PREVIEW_IMAGE, PREVIEW_IMAGE_WITH_METADATA = 1, 4
 RELAYED_EVENTS = {"executing", "progress", "progress_state", "execution_cached"}
 REMOTE_MODEL_ROUTES = ("/models", "/experiment/models", "/embeddings")
+# Routes forwarded with any method: "Download missing models to server" should fetch onto the compute server
+REMOTE_ROUTES = ("/server_models/",)
 
 server = PromptServer.instance
 _object_info = {"t": 0.0, "info": None}
@@ -57,8 +60,10 @@ def _runs_locally(class_type):
 @web.middleware
 async def remote_definitions(request, handler):
     path = request.path.removeprefix("/api")
-    if request.method == "GET" and path.startswith(REMOTE_MODEL_ROUTES):
-        async with aiohttp.ClientSession() as s, s.get(REMOTE_URL + request.path_qs) as r:
+    if path.startswith(REMOTE_ROUTES) or (request.method == "GET" and path.startswith(REMOTE_MODEL_ROUTES)):
+        headers = {"Content-Type": request.headers["Content-Type"]} if "Content-Type" in request.headers else {}
+        async with aiohttp.ClientSession() as s, s.request(request.method, REMOTE_URL + request.path_qs,
+                                                           data=await request.read(), headers=headers) as r:
             return web.Response(body=await r.read(), status=r.status, content_type=r.content_type)
     if request.method != "GET" or not path.startswith("/object_info"):
         return await handler(request)

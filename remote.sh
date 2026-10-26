@@ -33,16 +33,20 @@ COMFY=
 cleanup() {  # under set -e, so every step may fail quietly (the processes may be gone already)
   [[ -z $COMFY ]] || kill $COMFY 2>/dev/null || true
   kill $TUNNEL 2>/dev/null || true
-  ssh -O cancel -L "$FORWARD" "$HOST" 2>/dev/null || true
+  for _ in 1 2 3 4 5; do  # confirm the port is closed; retry if the cancel didn't take yet
+    ssh -O cancel -L "$FORWARD" "$HOST" 2>/dev/null || true
+    port_free "$TUNNEL_PORT" && break
+    sleep 1
+  done
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
 for _ in $(seq 1 30); do curl -s -o /dev/null "http://127.0.0.1:$TUNNEL_PORT/" && break; sleep 1; done
 curl -s -o /dev/null "http://127.0.0.1:$TUNNEL_PORT/" || { echo "ComfyUI on $HOST:$REMOTE_PORT is not reachable through the tunnel" >&2; exit 1; }
 
-# --cpu: nothing is computed here, so don't claim this machine's GPU. Own asset database (an index of the local
-# files), so this can run next to this machine's own ComfyUI
+# --cpu: nothing is computed here, so don't claim this machine's GPU. Own asset database per port (an index of
+# the local files), so this can run next to this machine's own ComfyUI and other clients
 COMFYUI_REMOTE_URL="http://127.0.0.1:$TUNNEL_PORT" "$PROJECT_DIR/run.sh" --cpu \
-  --database-url "sqlite:///$PROJECT_DIR/ComfyUI/user/comfyui-client.db" "$@" &
+  --database-url "sqlite:///$PROJECT_DIR/ComfyUI/user/comfyui-client-$COMFYUI_PORT.db" "$@" &
 COMFY=$!
 wait $COMFY
