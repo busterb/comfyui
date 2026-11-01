@@ -39,8 +39,7 @@ run.sh           start ComfyUI on 127.0.0.1:8188 with flags for this machine's G
 setup.sh         detect hardware, build .venv with the right PyTorch, link custom nodes and workflows, systemd unit
 remote.sh        run ComfyUI here but compute on another machine (see Remote compute)
 runpod.sh        rent a cloud GPU on RunPod as that other machine, on demand
-cloudgpu.sh      the same on CloudGPU (no persistent storage: small models only)
-lib/cloud.sh     what those two share: setting up the project and fetching models over SSH
+lib/cloud.sh     setting up the project on a rented machine and fetching its models over SSH
 dist.sh          package the project as a tarball for a machine without git access
 hf.sh            the Hugging Face CLI, with its token kept in .cache/
 comfyui.service  systemd user unit (setup.sh links it)
@@ -123,11 +122,6 @@ data center and pods can only use one in their own, so `runpod.sh` keeps one vol
 in and picks, of those, the one with the GPU in stock. Your images pass through the pod's memory while jobs run;
 nothing of yours is written to the volume.
 
-`cloudgpu.sh` does the same on [CloudGPU](https://cloudgpu.app), which is cheaper per hour but has no persistent
-storage: every rental installs the project and downloads its models again, and its machines have downloaded
-from Hugging Face at only 1-7 MB/s. It defaults to the People Edit 8GB workflow (about 10 GB of models) and also
-asks before renting; spending, time and idle limits are enforced by CloudGPU.
-
 ## Security notes
 
 ComfyUI has no authentication. Anyone who can reach its port can run jobs, read and upload images, and use
@@ -142,11 +136,10 @@ every route the custom nodes add. This project relies on that port never being e
 - `server_model_downloader` downloads files from huggingface.co, github.com and civitai.com into the models
   folder on request, using the Hugging Face token stored in `.cache/`. `server_image_manager` can delete
   images and videos in `input/` and `output/`. Both are only as safe as access to the port.
-- `runpod.sh` and `cloudgpu.sh` keep their API key, an SSH key made for the rented machines and those
-  machines' host keys in `.cache/runpod/` and `.cache/cloudgpu/`. `cloudgpu.sh` logs in once with the password
-  the API returns, adds its key and deletes the password. The rented machine's ComfyUI also stays on its
-  localhost, reached through the SSH tunnel. Rented machines never get your Hugging Face token (so gated models
-  can't be downloaded there) or your API key; RunPod pods delete themselves with the key RunPod gives each pod.
+- `runpod.sh` keeps the RunPod API key, an SSH key made for the pods and their host keys in `.cache/runpod/`.
+  The pod's ComfyUI also stays on its localhost, reached through the SSH tunnel. Pods never get your Hugging
+  Face token (so gated models can't be downloaded there) or your API key; they delete themselves with the key
+  RunPod gives each pod.
 - The Hugging Face token lives in `.cache/huggingface/`, which git ignores; `dist.sh` refuses to package it.
 - Custom nodes run with your user's privileges. Read third-party nodes before installing them.
 
