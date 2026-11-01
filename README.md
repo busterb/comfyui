@@ -1,9 +1,12 @@
 # comfyui
 
-A self-contained [ComfyUI](https://github.com/Comfy-Org/ComfyUI) setup that runs the same workflows on very
-different hardware. It adds scripts that build an isolated Python environment and tune ComfyUI's launch flags
-to the machine, a few custom nodes, a set of "People" image-edit and image-to-video workflows, and a remote
-mode that uses another machine's GPU while files stay on the local machine.
+A self-contained [ComfyUI](https://github.com/Comfy-Org/ComfyUI) setup that runs the same workflows on
+different hardware. It has:
+
+- scripts that build an isolated Python environment and pick ComfyUI's launch flags for the machine,
+- a few custom nodes,
+- "People" workflows for editing photos of people and turning them into short videos,
+- a remote mode that computes on another machine's GPU, or a rented one, while your files stay local.
 
 ComfyUI itself is not modified. It is a git submodule pinned to a tested upstream commit.
 
@@ -26,11 +29,12 @@ cd ~/projects/comfyui
 ./hf.sh auth login       # for gated Hugging Face models
 ```
 
-Open http://127.0.0.1:8188, load a workflow from the sidebar, and use
-**Extensions → Download missing models to server** to fetch its models. On macOS start ComfyUI with `./run.sh`.
+On macOS, start ComfyUI with `./run.sh`; on Linux the service is already running. Open http://127.0.0.1:8188,
+load a workflow from the sidebar, and use **Extensions → Download missing models to server** to fetch its
+models.
 
-Everything ComfyUI and its Python packages need (uv, the Python build, caches, the Hugging Face token) stays
-inside the project directory. The only thing outside it is the systemd user unit link on Linux.
+uv, the Python build, the caches and the Hugging Face token all stay inside the project directory. The only
+thing outside it is the systemd user unit link on Linux.
 
 ## Layout
 
@@ -38,8 +42,8 @@ inside the project directory. The only thing outside it is the systemd user unit
 run.sh           start ComfyUI on 127.0.0.1:8188 with flags for this machine's GPU
 setup.sh         detect hardware, build .venv with the right PyTorch, link custom nodes and workflows, systemd unit
 remote.sh        run ComfyUI here but compute on another machine (see Remote compute)
-runpod.sh        rent a cloud GPU on RunPod as that other machine, on demand
-lib/cloud.sh     setting up the project on a rented machine and fetching its models over SSH
+runpod.sh        rent a RunPod GPU to be that other machine
+lib/cloud.sh     used by runpod.sh: set up the project on a rented machine over SSH
 dist.sh          package the project as a tarball for a machine without git access
 hf.sh            the Hugging Face CLI, with its token kept in .cache/
 comfyui.service  systemd user unit (setup.sh links it)
@@ -66,23 +70,29 @@ included; install it into `ComfyUI/custom_nodes/` yourself.
 
 ## Workflows
 
-- **People Edit** (standard, Turbo, 8GB; one image or main + reference; batch folder): edit a photo of a
-  person from a text instruction, optionally borrowing clothing, hair or style from a reference image.
-- **People Video - H3 image to video**: MiniMax H3 image-to-video with generated sound (GB10). The **(Mac)**
-  variant uses the model files Apple GPUs can load and runs the text encoder on the CPU.
-- **People Video - Wan 2.2 5B / 14B image to video**: silent clips; the 14B one keeps identity much better.
+- **People Edit**: edit a photo of a person from a text instruction, optionally taking clothing, hair or
+  style from a reference image. Three versions: standard and Turbo (Qwen-Image 2.1) and 8GB (FLUX.2 Klein,
+  for 8 GB GPUs). Each comes as "1 image" and "main + reference"; Turbo also has a "batch folder" version that
+  edits every image in a folder.
+- **People Video - H3 image to video**: MiniMax H3 image to video, with generated sound. Needs a GB10-class
+  machine. The **(Mac)** version uses model files Apple GPUs can load and runs the text encoder on the CPU.
+- **People Video - Wan 2.2 5B / 14B image to video**: silent clips. The 14B version keeps the person's
+  identity much better.
 
-Each workflow has a "How to use" note and a "Model Links" note.
+Each workflow has a "How to use" note below its nodes. The video workflows also list their model links.
 
 ## Remote compute
 
-`remote.sh` starts a local ComfyUI whose web UI, `input/` and `output/` folders, history and assets are on
-this machine, while the models and the GPU work are on another machine running this project:
+`remote.sh` starts a ComfyUI on this machine that sends the GPU work to another machine running this project.
+The web UI, the `input/` and `output/` folders, the history and the assets stay on this machine. The models
+and the GPU work are on the other one.
 
 ```sh
-./remote.sh gb10                     # SSH host of the compute machine
-COMFYUI_PORT=8190 ./remote.sh gb10   # if this machine's own ComfyUI already uses 8188
+./remote.sh gb10    # gb10: the compute machine's SSH host
 ```
+
+It uses port 8188, or the first free port from 8190 if this machine's own ComfyUI already has 8188. It prints
+which one.
 
 How it works (`custom_nodes/remote_compute`):
 
@@ -92,35 +102,45 @@ How it works (`custom_nodes/remote_compute`):
 - Loaded images are sent to the compute machine's RAM, and results come back into the local save nodes.
   Images travel losslessly. Video frames are quantized exactly as the video encoder would quantize them.
 - Progress, node highlighting and previews are relayed to the local UI.
-- On the compute machine, job inputs and results live in RAM only and are deleted once the client has them,
-  along with the job's history entry. Nothing is written to its disk.
+- On the compute machine, job inputs and results stay in RAM and are deleted, with the job's history entry,
+  once the client has them. Nothing is written to its disk.
 
 Both machines need the same custom nodes. The compute machine needs the models; the client needs neither
 models nor a GPU.
 
 ### On a rented cloud GPU
 
-`runpod.sh` rents a [RunPod](https://www.runpod.io) pod and uses it as the compute machine. The project, its
-venv and the models live on a RunPod network volume, which outlives the pods: the first pod clones this
-repository (at the local commit), runs `setup.sh` and downloads the chosen workflows' models; later pods only
-start ComfyUI. Put an API key in `.cache/runpod/api_key` first.
+`runpod.sh` rents a [RunPod](https://www.runpod.io) pod to be the compute machine. First put a RunPod API key
+in `.cache/runpod/api_key`.
 
 ```sh
-./runpod.sh offers                       # GPUs and prices (Secure Cloud, which network volumes need)
-./runpod.sh run                          # rent an RTX 4090 for the People Edit Turbo workflows,
-                                        # run remote.sh against it, delete the pod when you quit
+./runpod.sh offers                        # GPUs in stock and their prices
+./runpod.sh run                           # rent an RTX 4090 for the People Edit Turbo workflows, run
+                                          # remote.sh against it, and delete the pod when you quit
 ./runpod.sh run --gpu "RTX 5090" --workflow "Wan 2.2 5B" --hours 1
-./runpod.sh up; ./runpod.sh connect; ./runpod.sh down   # the same in steps
-./runpod.sh run --datacenter EUR-IS-1   # rent there instead (makes a volume there the first time)
-./runpod.sh volume [delete DC]           # the network volumes (billed monthly by size)
+./runpod.sh run --datacenter EUR-IS-1     # rent in a particular data center
+./runpod.sh up; ./runpod.sh connect; ./runpod.sh down   # the same as run, in steps
+./runpod.sh extend 1                      # one more hour before the pod deletes itself
+./runpod.sh volume [delete DC]            # list the network volumes, or delete one
 ```
 
-It asks before renting. Each pod deletes itself after a time limit (default 3 hours, enforced on the pod from
-the start, so it holds if this machine goes offline; `./runpod.sh extend HOURS` pushes it back, and `connect`
-warns 10 and 2 minutes before) and after 30 minutes without jobs or a connected client. A volume lives in one
-data center and pods can only use one in their own, so `runpod.sh` keeps one volume per data center you rent
-in and picks, of those, the one with the GPU in stock. Your images pass through the pod's memory while jobs run;
-nothing of yours is written to the volume.
+The project, its venv and the models live on a RunPod network volume, which outlives the pods. The first pod
+on a volume installs everything and downloads the models, which takes about 15 minutes. Later pods are ready
+in a few minutes. A volume is billed monthly by size.
+
+A volume belongs to one data center, and pods can only use the volume in their own data center. `runpod.sh`
+keeps one volume per data center you rent in. Without `--datacenter`, it rents where one of your volumes is and
+the GPU is in stock. The first time, it picks a data center with the GPU in stock.
+
+`runpod.sh` asks before renting. A pod deletes itself:
+
+- after a time limit, 3 hours by default. The pod enforces this itself, so it holds even if this machine
+  goes offline. `./runpod.sh extend HOURS` adds time.
+- after 30 minutes with no jobs and no client connected.
+
+The browser and the `connect` terminal show when the pod will delete itself, and warn 10 and 2 minutes before.
+
+Your images pass through the pod's memory while jobs run. Nothing of yours is written to the volume.
 
 ## Security notes
 
@@ -134,27 +154,27 @@ every route the custom nodes add. This project relies on that port never being e
   compute machine's port could upload values into its RAM store (capped at 8 GB, entries expire after 30 min)
   or fetch a job's results before the client does.
 - `server_model_downloader` downloads files from huggingface.co, github.com and civitai.com into the models
-  folder on request, using the Hugging Face token stored in `.cache/`. `server_image_manager` can delete
-  images and videos in `input/` and `output/`. Both are only as safe as access to the port.
-- `runpod.sh` keeps the RunPod API key, an SSH key made for the pods and their host keys in `.cache/runpod/`.
-  The pod's ComfyUI also stays on its localhost, reached through the SSH tunnel. Pods never get your Hugging
-  Face token (so gated models can't be downloaded there) or your API key; they delete themselves with the key
-  RunPod gives each pod.
+  folder when asked, using the Hugging Face token in `.cache/`. `server_image_manager` can delete images and
+  videos in `input/` and `output/`. Both are only as safe as access to the port.
+- `runpod.sh` keeps the RunPod API key, an SSH key for the pods and the pods' host keys in `.cache/runpod/`.
+  A pod's ComfyUI also stays on its localhost, reached through the SSH tunnel. Pods never get your Hugging
+  Face token, so they can't download gated models. They never get your RunPod API key either: they delete
+  themselves with the key RunPod gives each pod.
 - The Hugging Face token lives in `.cache/huggingface/`, which git ignores; `dist.sh` refuses to package it.
 - Custom nodes run with your user's privileges. Read third-party nodes before installing them.
 
 ## Attribution
 
 - [ComfyUI](https://github.com/Comfy-Org/ComfyUI) by Comfy Org and contributors, GPL-3.0. Included as an
-  unmodified submodule; `ComfyUI/custom_nodes/websocket_image_save.py` is part of it.
+  unmodified submodule.
 - The workflows are adapted from Comfy Org's [workflow templates](https://github.com/Comfy-Org/workflow_templates),
   including parts of their model-link and how-to notes. MIT License, Copyright (c) 2023-present Comfy Org; see
   [workflows/LICENSE.workflow_templates](workflows/LICENSE.workflow_templates).
 - [ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF) by city96 (Apache-2.0) is referenced, not included.
 - Model weights are not included. Each model (FLUX.2 Klein, Qwen-Image, Wan 2.2, MiniMax H3, the lightx2v
-  LoRAs, the GGUF quantizations) has its own license; check it on the model's page before use.
+  LoRAs, the GGUF quantizations) has its own license. Check it on the model's page before use.
 
 ## License
 
-GPL-3.0 (see [LICENSE](LICENSE)), matching ComfyUI, which the custom nodes build on. The parts of the
-workflows taken from Comfy Org's templates remain under their MIT License.
+GPL-3.0 (see [LICENSE](LICENSE)), the same as ComfyUI, which the custom nodes build on. The parts of the
+workflows taken from Comfy Org's templates stay under their MIT License.
