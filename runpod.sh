@@ -276,8 +276,11 @@ case "${1:-}" in
   down) cmd_down ;;
   status) id="$(pod_id)" || die "no pod rented"
           rest GET "/pods/$id" | jq '{id, desiredStatus, costPerHr, gpu: .gpu.displayName, publicIp, portMappings, lastStartedAt}' ;;
-  offers) gpu_types | jq -r 'map(select(.secureCloud and .securePrice > 0)) | sort_by(.securePrice)[] |
-            "\(.displayName)\t\(.memoryInGb) GB\t$\(.securePrice)/h"' | column -t -s $'\t' ;;
+  offers) graphql '{ gpuTypes { displayName memoryInGb lowestPrice(input: {gpuCount: 1, secureCloud: true}) { stockStatus uninterruptablePrice } } }' |
+            jq -r '.gpuTypes | map(select(.lowestPrice.stockStatus != null)) | sort_by(.lowestPrice.uninterruptablePrice)[] |
+              "\(.displayName)\t\(.memoryInGb) GB\t$\(.lowestPrice.uninterruptablePrice)/h\tstock: \(.lowestPrice.stockStatus)"' |
+            column -t -s $'\t'
+          echo "(Secure Cloud GPUs available now, which network volumes need; a volume's own data center may have fewer)" ;;
   volume) shift; cmd_volume "$@" ;;
   ssh) shift; ssh_cmd "$@" ;;
   *) sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 2 ;;
