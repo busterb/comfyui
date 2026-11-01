@@ -363,9 +363,7 @@
      "localized_name": "images",
      "name": "images",
      "type": "IMAGE",
-     "links": [
-      708
-     ]
+     "links": []
     }
    ],
    "properties": {},
@@ -386,8 +384,8 @@
    "id": 463,
    "type": "MarkdownNote",
    "pos": [
-    -360,
-    2410
+    600,
+    3429.9458226107668
    ],
    "size": [
     420,
@@ -459,8 +457,7 @@
      "name": "image",
      "type": "IMAGE",
      "links": [
-      704,
-      707
+      704
      ]
     },
     {
@@ -488,57 +485,11 @@
    ]
   },
   {
-   "id": 472,
-   "type": "ImageCompare",
-   "pos": [
-    2226.513164012267,
-    2419.9458226107668
-   ],
-   "size": [
-    660,
-    760
-   ],
-   "flags": {},
-   "order": 6,
-   "mode": 0,
-   "inputs": [
-    {
-     "localized_name": "image_a",
-     "name": "image_a",
-     "shape": 7,
-     "type": "IMAGE",
-     "link": 707
-    },
-    {
-     "localized_name": "image_b",
-     "name": "image_b",
-     "shape": 7,
-     "type": "IMAGE",
-     "link": 708
-    },
-    {
-     "localized_name": "compare_view",
-     "name": "compare_view",
-     "type": "IMAGECOMPARE",
-     "widget": {
-      "name": "compare_view"
-     },
-     "link": null
-    }
-   ],
-   "outputs": [],
-   "properties": {
-    "Node name for S&R": "ImageCompare"
-   },
-   "widgets_values": [],
-   "widgets_values_named": {}
-  },
-  {
    "id": 476,
    "type": "MarkdownNote",
    "pos": [
-    -840,
-    2410
+    140,
+    3429.9458226107668
    ],
    "size": [
     420,
@@ -564,8 +515,8 @@
    "id": 501,
    "type": "MarkdownNote",
    "pos": [
-    986.5131640122675,
-    2729.9458226107668
+    1452,
+    3429.9458226107668
    ],
    "size": [
     420,
@@ -592,8 +543,8 @@
    "type": "MarkdownNote",
    "title": "Note: Batch",
    "pos": [
-    140,
-    2710
+    1060,
+    3429.9458226107668
    ],
    "size": [
     352,
@@ -613,22 +564,6 @@
   }
  ],
  "links": [
-  [
-   707,
-   508,
-   0,
-   472,
-   0,
-   "IMAGE"
-  ],
-  [
-   708,
-   461,
-   0,
-   472,
-   1,
-   "IMAGE"
-  ],
   [
    704,
    508,
@@ -3083,6 +3018,13 @@
    ],
    "outputs": [
     "461"
+   ]
+  },
+  "ds": {
+   "scale": 0.7,
+   "offset": [
+    17.14285714285714,
+    -2319.9458226107668
    ]
   }
  },

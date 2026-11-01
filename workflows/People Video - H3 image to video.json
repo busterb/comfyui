@@ -216,8 +216,8 @@
    "id": 116,
    "type": "MarkdownNote",
    "pos": [
-    -2090,
-    4860
+    -1130,
+    6070
    ],
    "size": [
     450,
@@ -243,8 +243,8 @@
    "id": 117,
    "type": "MarkdownNote",
    "pos": [
-    -2570,
-    4860
+    -1610,
+    6070
    ],
    "size": [
     440,
@@ -2448,7 +2448,14 @@
   "VHS_KeepIntermediate": true,
   "VHS_MetadataImage": true,
   "VHS_latentpreview": false,
-  "VHS_latentpreviewrate": 0
+  "VHS_latentpreviewrate": 0,
+  "ds": {
+   "scale": 0.7,
+   "offset": [
+    1767.142857142857,
+    -4750.0
+   ]
+  }
  },
  "version": 0.4
 }

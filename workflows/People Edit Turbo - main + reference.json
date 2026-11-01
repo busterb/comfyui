@@ -232,9 +232,7 @@
     {
      "name": "images",
      "type": "IMAGE",
-     "links": [
-      708
-     ]
+     "links": []
     }
    ],
    "properties": {},
@@ -255,8 +253,8 @@
    "id": 463,
    "type": "MarkdownNote",
    "pos": [
-    -360,
-    2410
+    600,
+    3657.7373538973634
    ],
    "size": [
     420,
@@ -298,8 +296,7 @@
      "name": "IMAGE",
      "type": "IMAGE",
      "links": [
-      704,
-      707
+      704
      ]
     },
     {
@@ -322,46 +319,11 @@
    "title": "Main image <image1> (edited)"
   },
   {
-   "id": 472,
-   "type": "ImageCompare",
-   "pos": [
-    2226.513164012267,
-    2419.9458226107668
-   ],
-   "size": [
-    660,
-    760
-   ],
-   "flags": {},
-   "order": 6,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "image_a",
-     "shape": 7,
-     "type": "IMAGE",
-     "link": 707
-    },
-    {
-     "name": "image_b",
-     "shape": 7,
-     "type": "IMAGE",
-     "link": 708
-    }
-   ],
-   "outputs": [],
-   "properties": {
-    "Node name for S&R": "ImageCompare"
-   },
-   "widgets_values": [],
-   "widgets_values_named": {}
-  },
-  {
    "id": 476,
    "type": "MarkdownNote",
    "pos": [
-    -840,
-    2410
+    140,
+    3657.7373538973634
    ],
    "size": [
     420,
@@ -387,8 +349,8 @@
    "id": 501,
    "type": "MarkdownNote",
    "pos": [
-    986.5131640122675,
-    2729.9458226107668
+    1060,
+    3657.7373538973634
    ],
    "size": [
     420,
@@ -454,22 +416,6 @@
   }
  ],
  "links": [
-  [
-   707,
-   470,
-   0,
-   472,
-   0,
-   "IMAGE"
-  ],
-  [
-   708,
-   461,
-   0,
-   472,
-   1,
-   "IMAGE"
-  ],
   [
    704,
    470,
@@ -2749,8 +2695,8 @@
   "ds": {
    "scale": 0.4559674823113218,
    "offset": [
-    465.27254975856295,
-    -1691.3529593002877
+    101.24527354978153,
+    -2266.4261030790876
    ]
   },
   "frontendVersion": "1.55.14",
