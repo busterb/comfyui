@@ -7,7 +7,8 @@
 #   ./runpod.sh connect           remote.sh against the rented pod
 #   ./runpod.sh down              delete the pod (the network volume, with the models, stays)
 #   ./runpod.sh extend HOURS      push the pod's time limit back
-#   ./runpod.sh status | offers | ssh [command]
+#   ./runpod.sh offers           GPUs in stock in the volume's data center, then elsewhere
+#   ./runpod.sh status | ssh [command]
 #   ./runpod.sh volume [delete]   the network volume: show it, or delete it with everything on it
 #
 # Options for up/run:
@@ -318,6 +319,28 @@ cmd_run() {  # delete the pod however this ends, including a failed setup
   cmd_connect || true
 }
 
+cmd_offers() {  # GPUs in stock in the volume's data center (pods can only run there), then elsewhere
+  local vol dc data
+  vol="$(volume)" dc="$(jq -r '.dataCenterId // empty' <<< "${vol:-{\}}")"
+  data="$(graphql '{ gpuTypes { id displayName memoryInGb securePrice } dataCenters { id listed gpuAvailability { gpuTypeId stockStatus } } }')"
+  # one row per GPU type and data center with stock: displayName, GB, price, data center, stock
+  local rows; rows="$(jq -r '(.gpuTypes | map({(.id): .}) | add) as $t | .dataCenters[] | select(.listed) | .id as $d
+    | .gpuAvailability[]? | select(.stockStatus != null and $t[.gpuTypeId] != null) | $t[.gpuTypeId] as $g
+    | [$g.displayName, $g.memoryInGb, $g.securePrice, $d, .stockStatus] | @tsv' <<< "$data" | sort -t $'\t' -k3,3n -k1,1)"
+  if [[ -n $dc ]]; then
+    echo "In $dc, where the network volume is (pods can only run there):"
+    awk -F'\t' -v dc="$dc" '$4 == dc {printf "  %s\t%s GB\t$%s/h\tstock: %s\n", $1, $2, $3, $5}' <<< "$rows" | column -t -s $'\t'
+    awk -F'\t' -v dc="$dc" '$4 == dc {n++} END {exit n > 0}' <<< "$rows" && echo "  (no GPUs in stock there right now)"
+    echo
+    echo "Elsewhere (would need a volume there):"
+  else
+    echo "No network volume yet; the first ./runpod.sh up creates one in a data center with the GPU in stock."
+    echo "GPUs in stock (Secure Cloud, which network volumes need), by data center:"
+  fi
+  awk -F'\t' -v dc="$dc" '$4 != dc {k = $1 "\t" $2 " GB\t$" $3 "/h"; l[k] = (k in l ? l[k] ", " : "") $4 " (" $5 ")"; o[k] = ++n}
+    END {for (k in o) print o[k] "\t" k "\t" l[k]}' <<< "$rows" | sort -n | cut -f2- | sed 's/^/  /' | column -t -s $'\t'
+}
+
 cmd_volume() {
   local vol; vol="$(volume)"
   [[ -n $vol ]] || { echo "no network volume named $VOLUME_NAME"; return; }
@@ -337,11 +360,7 @@ case "${1:-}" in
   down) cmd_down ;;
   status) check_pod || die "no pod rented"; id="$(pod_id)"
           rest GET "/pods/$id" | jq '{id, desiredStatus, costPerHr, gpu: .gpu.displayName, publicIp, portMappings, lastStartedAt}' ;;
-  offers) graphql '{ gpuTypes { displayName memoryInGb lowestPrice(input: {gpuCount: 1, secureCloud: true}) { stockStatus uninterruptablePrice } } }' |
-            jq -r '.gpuTypes | map(select(.lowestPrice.stockStatus != null)) | sort_by(.lowestPrice.uninterruptablePrice)[] |
-              "\(.displayName)\t\(.memoryInGb) GB\t$\(.lowestPrice.uninterruptablePrice)/h\tstock: \(.lowestPrice.stockStatus)"' |
-            column -t -s $'\t'
-          echo "(Secure Cloud GPUs available now, which network volumes need; a volume's own data center may have fewer)" ;;
+  offers) cmd_offers ;;
   volume) shift; cmd_volume "$@" ;;
   ssh) shift; ssh_cmd "$@" ;;
   *) sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 2 ;;
