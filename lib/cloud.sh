@@ -23,15 +23,15 @@ workflow_models() {  # NAME... -> JSON array of {name, url, directory} from the 
 }
 
 # Downloads the models listed on stdin (directory, name, URL; tab-separated) into ComfyUI/models/, three at a
-# time, skipping files already there. Per file it leaves NAME.size (expected bytes) and NAME.ok or NAME.err in
-# the status directory, and NAME.part in the models folder while downloading.
+# time, skipping files already there. Per file it leaves NAME.ok (with NAME.have if it was there already, else
+# NAME.size: expected bytes) or NAME.err in the status directory, and NAME.part in the models folder meanwhile.
 FETCH_MODELS='
 set -uo pipefail
 models="$1" status="$2"
 rm -rf "$status" && mkdir -p "$status"
 fetch() {
   local dir="$1" name="$2" url="$3" dest="$models/$1/$2"
-  if find -L "$models" -name "$name" -size +0 2>/dev/null | grep -q .; then touch "$status/$name.ok"; return; fi
+  if find -L "$models" -name "$name" -size +0 2>/dev/null | grep -q .; then touch "$status/$name.have" "$status/$name.ok"; return; fi
   mkdir -p "$models/$dir"
   # Headers along the redirects: the last status line says whether the file is there, x-linked-size (Hugging
   # Face) or the last content-length how big it is
@@ -62,7 +62,7 @@ provision_project() {  # MODELS_JSON PREPARE_COMMAND: the project at this checko
   jq -e 'all(.[]; (.url | test("^https://([a-z0-9-]+\\.)*(huggingface\\.co|github\\.com|civitai\\.com)/")) and (.name | test("^[^/]+$")) and (.directory | test("^[a-z_]+$")))' \
     <<< "$models" >/dev/null || die "a workflow lists a model with an unexpected URL, name or folder"
 
-  say "Fetching this project, then its models alongside setting it up"
+  say "Updating this project there to $(git -C "$PROJECT_DIR" rev-parse --short HEAD)"
   ssh_cmd "bash -s" <<EOF
 set -euo pipefail
 $prepare
@@ -73,18 +73,16 @@ git submodule update -q --init ComfyUI
 EOF
   local count; count="$(jq length <<< "$models")"
   if (( count )); then
-    jq -r '.[] | "  \(.directory)/\(.name)"' <<< "$models"
     jq -r '.[] | [.directory, .name, .url] | @tsv' <<< "$models" |
       ssh_cmd "cat > /root/models.tsv && { setsid nohup bash -c $(printf %q "$FETCH_MODELS") fetch $REMOTE_DIR/ComfyUI/models /root/model-status < /root/models.tsv > /root/fetch-models.log 2>&1 & }"
   fi
 
-  say "Setting up (the first time on a machine: PyTorch and ComfyUI, a few minutes)"
+  say "Setting up and starting ComfyUI (models download meanwhile); a new machine or volume installs PyTorch and ComfyUI first, a few minutes"
   ssh_cmd "bash -s" <<EOF
 set -euo pipefail
 cd $REMOTE_DIR
 ./setup.sh --no-service > setup.log 2>&1 || { tail -30 setup.log; exit 1; }
 grep -E '^torch .* OK on' setup.log || true
-.uv/bin/uv cache clean -q 2>/dev/null || true  # packages are in the venv; the download cache only takes space
 # (an "a || b &" would background a subshell holding this SSH session's output open, so the session never ends)
 if ! pgrep -f "[m]ain.py --listen 127.0.0.1" >/dev/null; then setsid nohup ./run.sh > /root/comfyui.log 2>&1 < /dev/null & fi
 for _ in \$(seq 1 150); do curl -s -o /dev/null http://127.0.0.1:8188/ && exit 0; sleep 2; done
@@ -93,9 +91,10 @@ EOF
 
   (( count )) || return 0
   say "Models"
-  local report
+  local report first=1
   while :; do  # files done, failed, bytes so far, bytes expected, finished, still running
-    sleep 15
+    (( first )) || sleep 15
+    first=0
     report="$(ssh_cmd "cd /root/model-status 2>/dev/null || { echo 0 0 0 0 0 0; exit; }
       ok=\$(ls *.ok 2>/dev/null | wc -l) err=\$(ls *.err 2>/dev/null | wc -l)
       total=\$(cat *.size 2>/dev/null | awk '{s+=\$1} END {printf \"%.0f\\n\", s}')
@@ -104,12 +103,12 @@ EOF
       echo \$ok \$err \$((got + part)) \$total \$([[ -e .done ]] && echo 1 || echo 0) \$(pgrep -f '[f]etch $REMOTE_DIR/ComfyUI/models' >/dev/null && echo 1 || echo 0)")" ||
       continue  # a dropped connection: ask again
     read -r ok err got total finished running <<< "$report"
-    awk -v ok="$ok" -v n="$count" -v got="$got" -v total="$total" -v err="$err" \
-      'BEGIN {printf "  %d of %d files, %.1f of %.1f GB fetched%s\n", ok, n, got / 1e9, total / 1e9, err ? ", " err " failed" : ""}' 
     [[ $finished == 1 ]] && break
+    awk -v ok="$ok" -v n="$count" -v got="$got" -v total="$total" -v err="$err" \
+      'BEGIN {printf "  %d of %d files ready, %.1f of %.1f GB downloaded%s\n", ok, n, got / 1e9, total / 1e9, err ? ", " err " failed" : ""}' 
     [[ $running == 1 ]] || die "the model downloads stopped (see /root/fetch-models.log there: $0 ssh cat /root/fetch-models.log)"
   done
-  if (( err )); then
-    die "$(ssh_cmd 'cd /root/model-status && for f in *.err; do echo "${f%.err}: $(cat "$f")"; done')"
-  fi
+  ssh_cmd 'cd /root/model-status && for f in *.ok *.err; do [[ -e $f ]] || continue; n=${f%.*}
+    case $f in *.err) echo "  FAILED      $n: $(cat "$f")" ;; *) [[ -e $n.have ]] && echo "  had         $n" || echo "  downloaded  $n" ;; esac; done'
+  (( err == 0 )) || die "some models couldn't be downloaded"
 }
