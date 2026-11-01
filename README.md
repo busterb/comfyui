@@ -38,6 +38,7 @@ inside the project directory. The only thing outside it is the systemd user unit
 run.sh           start ComfyUI on 127.0.0.1:8188 with flags for this machine's GPU
 setup.sh         detect hardware, build .venv with the right PyTorch, link custom nodes and workflows, systemd unit
 remote.sh        run ComfyUI here but compute on another machine (see Remote compute)
+cloud.sh         rent a cloud GPU (CloudGPU) as that other machine, on demand
 dist.sh          package the project as a tarball for a machine without git access
 hf.sh            the Hugging Face CLI, with its token kept in .cache/
 comfyui.service  systemd user unit (setup.sh links it)
@@ -96,6 +97,25 @@ How it works (`custom_nodes/remote_compute`):
 Both machines need the same custom nodes. The compute machine needs the models; the client needs neither
 models nor a GPU.
 
+### On a rented cloud GPU
+
+`cloud.sh` rents a GPU from [CloudGPU](https://cloudgpu.app) and sets it up as the compute machine: it clones
+this repository at the local commit, runs `setup.sh`, downloads the chosen workflows' models and starts
+ComfyUI there. Put an API key in `.cache/cloudgpu/api_key` first.
+
+```sh
+./cloud.sh offers                       # GPUs and prices
+./cloud.sh run                          # rent an RTX 4090 for the People Edit Turbo and 8GB workflows,
+                                        # run remote.sh against it, destroy it when you quit
+./cloud.sh run --gpu "RTX 5090" --workflow "Wan 2.2 5B" --max-spend 3 --hours 1
+./cloud.sh up; ./cloud.sh connect; ./cloud.sh down   # the same in steps
+```
+
+It asks before renting. Every instance gets a spending cap, a time limit and an idle shutdown (defaults
+$5, 3 hours, 30 minutes with an idle GPU), which CloudGPU enforces even if this machine goes offline. Instances
+have no persistent storage, so each one downloads its models again (about 42 GB for the default workflows).
+Your images pass through the rented machine's memory while jobs run.
+
 ## Security notes
 
 ComfyUI has no authentication. Anyone who can reach its port can run jobs, read and upload images, and use
@@ -110,6 +130,10 @@ every route the custom nodes add. This project relies on that port never being e
 - `server_model_downloader` downloads files from huggingface.co, github.com and civitai.com into the models
   folder on request, using the Hugging Face token stored in `.cache/`. `server_image_manager` can delete
   images and videos in `input/` and `output/`. Both are only as safe as access to the port.
+- `cloud.sh` keeps the CloudGPU API key, a per-instance SSH key and the instance's host key in
+  `.cache/cloudgpu/`. It logs in once with the password the API returns, adds its own key and deletes the
+  password. The rented machine's ComfyUI also stays on its localhost, reached through the SSH tunnel. It never
+  gets your Hugging Face token, so gated models can't be downloaded there.
 - The Hugging Face token lives in `.cache/huggingface/`, which git ignores; `dist.sh` refuses to package it.
 - Custom nodes run with your user's privileges. Read third-party nodes before installing them.
 

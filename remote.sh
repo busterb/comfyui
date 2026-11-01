@@ -6,6 +6,7 @@
 #   COMFYUI_PORT=8190 ./remote.sh HOST   local port (default 8188, or the first free one from 8190 if that's taken,
 #                                     e.g. by this machine's own ComfyUI)
 #   REMOTE_PORT=8188                  ComfyUI's port on HOST (it only listens on HOST's localhost)
+#   SSH_CONFIG=FILE                   ssh config to use instead of ~/.ssh/config
 #
 # HOST needs this project set up (setup.sh) with ComfyUI running. The connection goes through an SSH tunnel,
 # so HOST's ComfyUI stays bound to its localhost. Extra arguments are passed on to run.sh.
@@ -15,6 +16,8 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOST="${1:?usage: ./remote.sh HOST [run.sh arguments]}"
 shift
 REMOTE_PORT="${REMOTE_PORT:-8188}"
+SSH=(ssh)
+[[ -z ${SSH_CONFIG:-} ]] || SSH+=(-F "$SSH_CONFIG")  # an ssh config of its own (cloud.sh's rented GPU)
 
 port_free() { ! (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
 first_free() { for p in "$@"; do port_free "$p" && { echo "$p"; return; }; done; echo "no free port among $*" >&2; exit 1; }
@@ -25,7 +28,7 @@ fi
 TUNNEL_PORT="${TUNNEL_PORT:-$(first_free $(seq 18188 18199))}"
 
 FORWARD="$TUNNEL_PORT:127.0.0.1:$REMOTE_PORT"
-ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L "$FORWARD" "$HOST" &
+"${SSH[@]}" -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L "$FORWARD" "$HOST" &
 TUNNEL=$!
 # With SSH connection sharing (ControlMaster) the forward lives in the shared master connection and would
 # outlast this script: cancel it there too (a no-op without sharing)
@@ -34,7 +37,7 @@ cleanup() {  # under set -e, so every step may fail quietly (the processes may b
   [[ -z $COMFY ]] || kill $COMFY 2>/dev/null || true
   kill $TUNNEL 2>/dev/null || true
   for _ in 1 2 3 4 5; do  # confirm the port is closed; retry if the cancel didn't take yet
-    ssh -O cancel -L "$FORWARD" "$HOST" 2>/dev/null || true
+    "${SSH[@]}" -O cancel -L "$FORWARD" "$HOST" 2>/dev/null || true
     port_free "$TUNNEL_PORT" && break
     sleep 1
   done
