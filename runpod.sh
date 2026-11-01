@@ -121,7 +121,7 @@ SELF_DELETE='runpodctl remove pod "$RUNPOD_POD_ID" || curl -sS -X DELETE -H "Aut
 provision() {  # MODELS_JSON IDLE_MINUTES
   provision_project "$1" ""
   if (( $2 > 0 )); then
-    ssh_cmd "cat > /root/idle-watchdog.sh; pkill -f '[i]dle-watchdog.sh'; setsid nohup bash /root/idle-watchdog.sh > /root/idle-watchdog.log 2>&1 < /dev/null &" \
+    ssh_cmd "cat > /root/idle-watchdog.sh; pkill -f '^bash /root/idle-watchdog[.]sh\$'; setsid nohup bash /root/idle-watchdog.sh > /root/idle-watchdog.log 2>&1 < /dev/null &" \
       <<< "$(idle_watchdog "$2")"
   fi
 }
