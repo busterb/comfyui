@@ -1,11 +1,13 @@
-"""Client half: run the browser's jobs on the compute server at COMFYUI_REMOTE_URL, keep files local.
+"""Client half: run the browser's jobs on the compute servers in COMFYUI_REMOTE_URL, keep files local.
 
-- /object_info and the model-list routes come from the compute server, so workflows see its nodes and models, and
-  "Download missing models to server" downloads onto it.
+- COMFYUI_REMOTE_URL is one server's URL, or several separated by commas, most preferred first.
+- /object_info and the model-list routes come from the first server, so workflows see its nodes and models, and
+  "Download missing models to server" downloads onto it. The others should have the same nodes and models.
   Nodes that run here (file loaders, save/preview nodes, this pack's own) keep their local definitions.
-- Each queued prompt is split (see split.py): local loaders run here, their outputs are uploaded to the server's
+- Each queued prompt is split (see split.py): local loaders run here, their outputs are uploaded to a server's
   RAM, the rest runs there, and the results come back into the local save/preview nodes. Progress, node
   highlighting and latent previews are relayed from the server with the local prompt id.
+- With several servers, as many prompts run here at once, each on the first server that is free.
 """
 
 import asyncio
@@ -13,6 +15,8 @@ import hashlib
 import json
 import logging
 import os
+import sys
+import threading
 import time
 import urllib.request
 import uuid
@@ -21,13 +25,17 @@ import aiohttp
 from aiohttp import web
 
 import comfy.model_management
+import comfy_execution.progress as progress
 import execution
 import nodes
+from comfy_execution.graph import DynamicPrompt
 from server import PromptServer
 
 from . import codec, split
 
-REMOTE_URL = os.environ.get("COMFYUI_REMOTE_URL", "").rstrip("/")
+REMOTE_URLS = [u.strip().rstrip("/") for u in os.environ.get("COMFYUI_REMOTE_URL", "").split(",") if u.strip()]
+REMOTE_URL = REMOTE_URLS[0]  # node definitions, model lists and downloads, the time limit
+SERVER_DOWN_FOR = 60  # seconds a server that refused a connection is skipped
 UPLOAD_PART = 64 * 1024**2  # stays under the server's default 100 MB --max-upload-size
 PREVIEW_IMAGE, PREVIEW_IMAGE_WITH_METADATA = 1, 4
 RELAYED_EVENTS = {"executing", "progress", "progress_state", "execution_cached"}
@@ -96,7 +104,7 @@ def rewrite_prompt(json_data):
         local, spec = split.split(prompt, _is_local_output, lambda c: bool(info.get(c, {}).get("output_node")),
                                   json_data.get("partial_execution_targets"))
     except Exception as e:
-        logging.error(f"remote_compute: can't run this prompt on {REMOTE_URL}: {e}")
+        logging.error(f"remote_compute: can't run this prompt remotely: {e}")
         json_data["prompt"] = {"remote_compute_error": {"class_type": "RemoteComputeError", "inputs": {"message": str(e)}}}
         json_data.pop("partial_execution_targets", None)
         return json_data
@@ -106,7 +114,7 @@ def rewrite_prompt(json_data):
         json_data.setdefault("extra_data", {})[ORIGINAL_PROMPT] = prompt
         if json_data.get("partial_execution_targets") is not None:
             json_data["partial_execution_targets"] = list(json_data["partial_execution_targets"]) + [split.EXEC_ID]
-        logging.info(f"remote_compute: {len(spec['remote_ids'])} nodes run on {REMOTE_URL}, "
+        logging.info(f"remote_compute: {len(spec['remote_ids'])} nodes run on a compute server, "
                      f"{len(local) - len(spec['captures']) - 1} here; {len(spec['inputs'])} values up, {len(spec['captures'])} back")
     return json_data
 
@@ -159,6 +167,113 @@ def _relay_binary(data, remote_pid, local_pid, sid):
         _relay_bytes(event, len(meta).to_bytes(4, "big") + meta + payload[4 + n:], sid)
 
 
+# --- several prompts at once ------------------------------------------------------------------------------
+# ComfyUI runs one prompt at a time, keeping the running prompt's id and progress in globals. With several
+# servers, more workers run prompts side by side, so the id (and the progress registry, when there are several
+# workers) is kept per thread instead: every prompt executes in one thread, its async nodes included.
+
+_job = threading.local()
+_execute_async = execution.PromptExecutor.execute_async
+
+
+async def _execute_async_tracked(self, prompt, prompt_id, extra_data={}, execute_outputs=[]):
+    _job.prompt_id, _job.client_id = prompt_id, extra_data.get("client_id")
+    return await _execute_async(self, prompt, prompt_id, extra_data, execute_outputs)
+
+
+def _reset_progress_state(prompt_id, dynprompt):
+    if getattr(_job, "registry", None) is not None:
+        _job.registry.reset_handlers()
+    _job.registry = progress.ProgressRegistry(prompt_id, dynprompt)
+
+
+def _get_progress_state():
+    if getattr(_job, "registry", None) is None:
+        _job.registry = progress.ProgressRegistry(prompt_id="", dynprompt=DynamicPrompt({}))
+    return _job.registry
+
+
+def _add_progress_handler(handler):
+    registry = _get_progress_state()
+    handler.set_registry(registry)
+    registry.register_handler(handler)
+
+
+def _per_thread_progress():
+    import comfy_api.latest
+    for module in (progress, execution, comfy_api.latest, sys.modules.get("__main__")):
+        for name, f in (("reset_progress_state", _reset_progress_state), ("get_progress_state", _get_progress_state),
+                        ("add_progress_handler", _add_progress_handler)):
+            if hasattr(module, name):
+                setattr(module, name, f)
+
+
+def _worker():
+    """What ComfyUI's own prompt worker does for a prompt, minus its model and memory housekeeping (nothing is
+    loaded here)."""
+    q = server.prompt_queue
+    e = execution.PromptExecutor(server, cache_type=execution.CacheType.CLASSIC, asset_manager=server.asset_manager,
+                                 cache_args={"lru": 0, "ram": 2.0, "ram_inactive": 4.0})  # as main.py's defaults, small
+    while True:
+        try:
+            _run_one(q, e)
+        except Exception:
+            logging.exception("remote_compute: worker error")
+
+
+def _run_one(q, e):
+    queue_item = q.get(timeout=1000.0)
+    if queue_item is None:
+        return
+    item, item_id = queue_item
+    prompt_id = item[1]
+    extra_data = item[3].copy()
+    extra_data.update(item[5])  # the sensitive part, kept out of the history
+    start = time.perf_counter()
+    try:
+        e.execute(item[2], prompt_id, extra_data, item[4])
+    except Exception as ex:  # execute reports node errors itself; this is anything else, so the prompt still ends
+        logging.exception("remote_compute: worker error")
+        e.success, e.history_result = False, {"outputs": {}, "meta": {}}
+        e.status_messages = [("execution_error", {"prompt_id": prompt_id, "exception_message": str(ex)})]
+    q.task_done(item_id, e.history_result,
+                status=execution.PromptQueue.ExecutionStatus(status_str="success" if e.success else "error",
+                                                             completed=e.success, messages=e.status_messages),
+                process_item=lambda prompt: prompt[:5] + prompt[6:])
+    if extra_data.get("client_id") is not None:
+        server.send_sync("executing", {"node": None, "prompt_id": prompt_id}, extra_data["client_id"])
+    logging.info(f"Prompt executed in {time.perf_counter() - start:.2f} seconds")
+
+
+class _Servers:
+    """Which compute servers are busy; a job takes the first free one, in COMFYUI_REMOTE_URL's order."""
+
+    def __init__(self, urls):
+        self.urls, self.busy, self.down_until, self.lock = urls, set(), {}, threading.Lock()
+
+    async def acquire(self):
+        while True:
+            with self.lock:
+                now = time.time()
+                free = [u for u in self.urls if u not in self.busy]
+                up = [u for u in free if self.down_until.get(u, 0) <= now]
+                if up or (free and len(free) == len(self.urls)):  # all down: try anyway rather than wait forever
+                    url = (up or free)[0]
+                    self.busy.add(url)
+                    return url
+            comfy.model_management.throw_exception_if_processing_interrupted()
+            await asyncio.sleep(0.2)
+
+    def release(self, url, refused=False):
+        with self.lock:
+            self.busy.discard(url)
+            if refused:
+                self.down_until[url] = time.time() + SERVER_DOWN_FOR
+
+
+_servers = _Servers(REMOTE_URLS)
+
+
 # --- nodes -----------------------------------------------------------------------------------------------
 
 def _decode_results(body):
@@ -183,8 +298,24 @@ class RemoteComputeExecute:
     CATEGORY = "remote_compute/internal"
 
     async def run(self, spec, **inputs):
-        spec = json.loads(spec)
-        local_pid, sid = server.last_prompt_id, server.client_id
+        tried = set()
+        while True:
+            url = await _servers.acquire()
+            try:
+                return await self._run_on(url, json.loads(spec), inputs)
+            except aiohttp.ClientConnectorError as e:  # nothing was queued there: try another server
+                tried.add(url)
+                _servers.release(url, refused=True)
+                url = None
+                if len(tried) == len(REMOTE_URLS):
+                    raise RuntimeError(f"can't reach any compute server ({e})")
+                logging.warning(f"remote_compute: {e}; trying another compute server")
+            finally:
+                if url is not None:
+                    _servers.release(url)
+
+    async def _run_on(self, url, spec, inputs):
+        local_pid, sid = _job.prompt_id, _job.client_id
         job = uuid.uuid4().hex
         client_id = f"remote_compute-{job}"
         timeout = aiohttp.ClientTimeout(total=None, sock_connect=10)
@@ -197,43 +328,45 @@ class RemoteComputeExecute:
                     data = codec.encode(inputs[f"in_{i}"])
                     fp = hashlib.sha256(data).hexdigest()
                     fingerprints.append(fp)
-                    async with s.get(f"{REMOTE_URL}/remote_compute/value/{fp}") as r:
+                    async with s.get(f"{url}/remote_compute/value/{fp}") as r:
                         present = (await r.json())["present"]
                     for part, off in enumerate(range(0, len(data), UPLOAD_PART) if not present else []):
-                        async with s.put(f"{REMOTE_URL}/remote_compute/value/{fp}?part={part}", data=data[off:off + UPLOAD_PART]) as r:
+                        async with s.put(f"{url}/remote_compute/value/{fp}?part={part}", data=data[off:off + UPLOAD_PART]) as r:
                             if r.status != 200:
                                 raise RuntimeError(f"upload to compute server failed: HTTP {r.status} {await r.text()}")
                     prompt_json = prompt_json.replace(json.dumps(f"@in_{i}"), json.dumps(fp))
                 prompt_json = prompt_json.replace('"@job"', json.dumps(job))
 
                 # 2. queue it and follow the server's websocket until it finishes
-                async with s.ws_connect(f"{REMOTE_URL}/ws?clientId={client_id}", max_msg_size=0) as ws:
-                    async with s.post(f"{REMOTE_URL}/prompt", json={"prompt": json.loads(prompt_json), "client_id": client_id}) as r:
+                async with s.ws_connect(f"{url}/ws?clientId={client_id}", max_msg_size=0) as ws:
+                    async with s.post(f"{url}/prompt", json={"prompt": json.loads(prompt_json), "client_id": client_id}) as r:
                         res = await r.json()
                     if r.status != 200:
                         raise RuntimeError(f"compute server rejected the prompt: {json.dumps(res.get('error', res))[:500]} "
                                            f"{json.dumps(res.get('node_errors', {}))[:1500]}")
                     remote_pid = res["prompt_id"]
-                    await self._follow(ws, s, remote_pid, local_pid, sid)
+                    if len(REMOTE_URLS) > 1:
+                        logging.info(f"remote_compute: prompt {local_pid} runs on {url}")
+                    await self._follow(ws, s, url, remote_pid, local_pid, sid)
 
                 # 3. fetch the results (the server forgets them on cleanup)
-                async with s.get(f"{REMOTE_URL}/remote_compute/results/{job}") as r:
+                async with s.get(f"{url}/remote_compute/results/{job}") as r:
                     if r.status != 200:
                         raise RuntimeError(f"compute server has no results for this job: HTTP {r.status}")
                     results = _decode_results(await r.read())
             finally:
                 try:
-                    async with s.post(f"{REMOTE_URL}/remote_compute/cleanup",
+                    async with s.post(f"{url}/remote_compute/cleanup",
                                       json={"job": job, "fingerprints": fingerprints, "prompt_id": remote_pid}) as r:
                         pass
                 except Exception as e:
                     logging.warning(f"remote_compute: cleanup on compute server failed: {e}")
         return (results,)
 
-    async def _follow(self, ws, session, remote_pid, local_pid, sid):
+    async def _follow(self, ws, session, url, remote_pid, local_pid, sid):
         while True:
             if comfy.model_management.processing_interrupted():
-                async with session.post(f"{REMOTE_URL}/interrupt", json={"prompt_id": remote_pid}):
+                async with session.post(f"{url}/interrupt", json={"prompt_id": remote_pid}):
                     pass
                 comfy.model_management.throw_exception_if_processing_interrupted()
             try:
@@ -299,4 +432,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {"RemoteComputeExecute": "Run on compute server (in
 server.app.middlewares.append(remote_definitions)
 server.add_on_prompt_handler(rewrite_prompt)
 execution.get_input_data = _get_input_data_queued
-logging.info(f"remote_compute: jobs run on {REMOTE_URL}; files stay on this machine")
+execution.PromptExecutor.execute_async = _execute_async_tracked
+if len(REMOTE_URLS) > 1:
+    _per_thread_progress()
+    for i in range(len(REMOTE_URLS) - 1):  # ComfyUI's own worker is the first
+        threading.Thread(target=_worker, daemon=True, name=f"remote_compute worker {i + 2}").start()
+logging.info(f"remote_compute: jobs run on {', '.join(REMOTE_URLS)}; files stay on this machine")

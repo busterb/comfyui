@@ -88,11 +88,17 @@ The web UI, the `input/` and `output/` folders, the history and the assets stay 
 and the GPU work are on the other one.
 
 ```sh
-./remote.sh gb10    # gb10: the compute machine's SSH host
+./remote.sh gb10          # gb10: the compute machine's SSH host
+./remote.sh gb10 mac      # several compute machines, fastest first
 ```
 
 It uses port 8188, or the first free port from 8190 if this machine's own ComfyUI already has 8188. It prints
 which one.
+
+With several compute machines, that many jobs run at once, each on the first free machine in the order given.
+Queue a batch, or run a batch folder, and the jobs spread over all of them. The first machine provides the node
+and model lists, and "Download missing models to server" downloads onto it, so the others need the same models.
+A machine that can't be reached is left out.
 
 How it works (`custom_nodes/remote_compute`):
 
@@ -102,6 +108,7 @@ How it works (`custom_nodes/remote_compute`):
 - Loaded images are sent to the compute machine's RAM, and results come back into the local save nodes.
   Images travel losslessly. Video frames are quantized exactly as the video encoder would quantize them.
 - Progress, node highlighting and previews are relayed to the local UI.
+- Cancelling stops every job that is running, not just one.
 - On the compute machine, job inputs and results stay in RAM and are deleted, with the job's history entry,
   once the client has them. Nothing is written to its disk.
 
@@ -119,6 +126,7 @@ in `.cache/runpod/api_key`.
                                           # remote.sh against it, and delete the pod when you quit
 ./runpod.sh run --gpu "RTX 5090" --workflow "Wan 2.2 5B" --hours 1
 ./runpod.sh run --datacenter EUR-IS-1     # rent in a particular data center
+./runpod.sh run --with gb10               # use your own gb10 too, next to the pod
 ./runpod.sh up; ./runpod.sh connect; ./runpod.sh down   # the same as run, in steps
 ./runpod.sh extend 1                      # one more hour before the pod deletes itself
 ./runpod.sh volume [delete DC]            # list the network volumes, or delete one

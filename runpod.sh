@@ -4,7 +4,7 @@
 #
 #   ./runpod.sh run [options]     rent a pod, set it up, run remote.sh against it, delete the pod when you quit
 #   ./runpod.sh up [options]      rent and set up only; then ./runpod.sh connect, and ./runpod.sh down when done
-#   ./runpod.sh connect           remote.sh against the rented pod
+#   ./runpod.sh connect [HOST...] remote.sh against the rented pod, and your own compute machines HOST too
 #   ./runpod.sh down              delete the pod (the network volume, with the models, stays)
 #   ./runpod.sh extend HOURS      push the pod's time limit back
 #   ./runpod.sh offers            GPUs in stock in the volume's data center, then elsewhere
@@ -22,6 +22,7 @@
 #                       any such data center, US first)
 #   --volume-gb GB      size of a new network volume (default 75)
 #   --yes               don't ask before renting
+#   --with HOST         run only: also use your compute machine HOST (repeatable), like connect HOST
 #
 # This project, its venv and the models live on a RunPod network volume (/workspace), which outlives the pods:
 # the first pod installs and downloads everything, later ones only start ComfyUI. Pods can only use a volume in
@@ -132,6 +133,9 @@ Host $HOST_ALIAS
   ControlMaster auto
   ControlPath ${XDG_RUNTIME_DIR:-/tmp}/comfyui-ssh-%C
   ControlPersist 10m
+# other hosts (your own compute machines next to the pod: ./runpod.sh connect HOST) as usual
+Match all
+Include ~/.ssh/config
 EOF
 }
 
@@ -332,9 +336,13 @@ cmd_down() {
 }
 
 cmd_run() {  # delete the pod however this ends, including a failed setup
+  local args=() with=()
+  while (( $# )); do  # --with HOST: also compute there; the rest is for up
+    if [[ $1 == --with ]]; then with+=("$2"); shift 2; else args+=("$1"); shift; fi
+  done
   trap '[[ -z $(pod_id) ]] || { echo; echo "deleting the pod"; cmd_down; }' EXIT
-  cmd_up "$@"
-  cmd_connect || true
+  cmd_up ${args[@]+"${args[@]}"}
+  cmd_connect ${with[@]+"${with[@]}"} || true
 }
 
 cmd_offers() {  # GPUs in stock where our volumes are (pods can only run there), then elsewhere
