@@ -1,4 +1,5 @@
-# Shared by the cloud GPU scripts (runpod.sh, cloudgpu.sh): set up this project on a rented machine over SSH.
+# Shared by the cloud GPU scripts (*.sh at the project root that source it): set up this project on a rented
+# machine over SSH.
 # The including script sets PROJECT_DIR, STATE (with ssh_config in it), HOST_ALIAS, REPO_URL and REMOTE_DIR, and
 # defines die and say.
 

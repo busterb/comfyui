@@ -19,7 +19,7 @@
 #   --yes               don't ask before renting
 #
 # CloudGPU instances have no persistent storage, so every rental downloads its models again, and their machines
-# have downloaded from Hugging Face at only 1-7 MB/s: small models only (runpod.sh keeps them on a volume).
+# have downloaded from Hugging Face at only 1-7 MB/s, so this suits workflows with small models.
 # CloudGPU enforces the limits on its side, so the instance goes away even if this machine sleeps or this
 # script dies. The API key is read from CLOUDGPU_API_KEY or .cache/cloudgpu/api_key (create one at
 # https://cloudgpu.app/api). The instance's SSH password, a key made for it and its host key are kept in
