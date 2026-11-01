@@ -70,6 +70,10 @@ export function openImageManager({ root = "input", folder = "", kind = "" } = {}
   document.querySelector(".sim-overlay")?.remove();
 
   const state = { root, folder, kind, images: [], picked: new Set(), current: null, confirming: false };
+  // Every change re-renders the panel, and a new grid starts at the top: keep the scroll position while the
+  // same list is shown (same tab, folder and kind), so picking files further down doesn't jump back up
+  const scroll = { view: "", top: 0 };
+  const view = () => `${state.root}|${state.folder}|${state.kind}`;
   const overlay = el("div", { class: "sim-overlay", onclick: (e) => e.target === overlay && close() });
   const panel = el("div", { class: "sim-panel", role: "dialog", "aria-label": "Server files" });
   overlay.append(panel);
@@ -143,6 +147,8 @@ export function openImageManager({ root = "input", folder = "", kind = "" } = {}
   }
 
   function render() {
+    const old = panel.querySelector(".sim-body > .sim-grid");
+    if (old) scroll.top = old.scrollTop; // scroll.view is still the view that grid showed
     panel.replaceChildren();
     const list = shown();
     const folders = [...new Set(state.images.map((i) => splitPath(i.path)[0]).filter(Boolean))].sort();
@@ -207,6 +213,8 @@ export function openImageManager({ root = "input", folder = "", kind = "" } = {}
       preview = el("div", { class: "sim-preview" }, el("div", { class: "sim-big" }, el("span", { class: "sim-meta" }, "Click a file to preview it")));
     }
     panel.append(el("div", { class: "sim-body" }, grid, preview));
+    if (scroll.view === view()) grid.scrollTop = scroll.top; // once it is in the page, so it has a height
+    scroll.view = view();
 
     const pickedShown = list.filter((i) => state.picked.has(i.path)).length;
     panel.append(el("div", { class: "sim-bar sim-foot" },
