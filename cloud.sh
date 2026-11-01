@@ -1,115 +1,121 @@
 #!/usr/bin/env bash
-# Rent a GPU on CloudGPU (cloudgpu.app) as an on-demand compute machine for remote.sh: the web UI, input/ and
+# Rent a GPU on RunPod (runpod.io) as an on-demand compute machine for remote.sh: the web UI, input/ and
 # output/ stay on this machine, the rented GPU only computes.
 #
-#   ./cloud.sh run [options]     rent and provision, run remote.sh against it, destroy it when remote.sh exits
-#   ./cloud.sh up [options]      rent and provision only; then ./cloud.sh connect, and ./cloud.sh down when done
-#   ./cloud.sh connect           remote.sh against the rented GPU
-#   ./cloud.sh down              destroy it (its disk is erased; nothing of yours is kept there)
-#   ./cloud.sh status | list | offers | ssh [command]
+#   ./cloud.sh run [options]     rent a pod, set it up, run remote.sh against it, delete the pod when you quit
+#   ./cloud.sh up [options]      rent and set up only; then ./cloud.sh connect, and ./cloud.sh down when done
+#   ./cloud.sh connect           remote.sh against the rented pod
+#   ./cloud.sh down              delete the pod (the network volume, with the models, stays)
+#   ./cloud.sh status | offers | ssh [command]
+#   ./cloud.sh volume [delete]   the network volume: show it, or delete it with everything on it
 #
 # Options for up/run:
-#   --gpu MODEL         GPU model as `./cloud.sh offers` lists it (default "RTX 4090")
+#   --gpu NAME          GPU as `./cloud.sh offers` lists it (default "RTX 4090")
 #   --workflow NAME     download the models of the workflows whose file name contains NAME (repeatable;
 #                       default "People Edit Turbo" and "People Edit 8GB")
-#   --max-spend USD     budget for this instance (default 5)
-#   --hours H           time limit (default 3)
-#   --idle MINUTES      destroy after the GPU was idle this long (default 30, minimum 10, 0 = off)
+#   --hours H           delete the pod after this long (default 3)
+#   --idle MINUTES      delete the pod after this long without jobs (default 30, 0 = off)
+#   --datacenter ID     where to create the network volume (first run only; default: the one with the most of
+#                       the GPU in stock, US first)
+#   --volume-gb GB      size of the network volume (first run only; default 75)
 #   --yes               don't ask before renting
 #
-# CloudGPU enforces the limits on its side, so the instance goes away even if this machine sleeps or this
-# script dies. The API key is read from CLOUDGPU_API_KEY or .cache/cloudgpu/api_key (create one at
-# https://cloudgpu.app/api). The instance's SSH password, a key made for it and its host key are kept in
-# .cache/cloudgpu/ (git-ignored), and the instance runs this repository at this checkout's commit.
+# This project, its venv and the models live on a RunPod network volume (/workspace), which outlives the pods:
+# the first pod installs and downloads everything, later ones only start ComfyUI. Pods can only use a volume in
+# their own data center. The volume is billed monthly by size, pods by the minute while they exist.
+#
+# The time limit is enforced on the pod itself from the moment it starts (it deletes itself), so it holds even if
+# this machine goes offline; the idle limit starts once the pod is set up. The API key is read from
+# RUNPOD_API_KEY or .cache/runpod/api_key (create one at https://console.runpod.io/user/settings). A key made
+# for the pods and their host keys are kept in .cache/runpod/ (git-ignored). Pods run this repository at this
+# checkout's commit.
 set -euo pipefail
 shopt -s inherit_errexit  # functions run in $(...) stop at their first error too
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATE="$PROJECT_DIR/.cache/cloudgpu"
-API="https://cloudgpu.app/v1/gpu"
-HOST_ALIAS=cloudgpu
+STATE="$PROJECT_DIR/.cache/runpod"
+REST="https://rest.runpod.io/v1"
+GRAPHQL="https://api.runpod.io/graphql"
+IMAGE="runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04"  # for its sshd setup; setup.sh brings its own PyTorch
+VOLUME_NAME="comfyui"
+HOST_ALIAS=runpod
 REPO_URL="https://github.com/busterb/comfyui.git"
-REMOTE_DIR=/root/comfyui
+REMOTE_DIR=/workspace/comfyui
 mkdir -p "$STATE" && chmod 700 "$STATE"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 say() { printf '\n== %s\n' "$*"; }
 
 api_key() {
-  if [[ -n ${CLOUDGPU_API_KEY:-} ]]; then echo "$CLOUDGPU_API_KEY"
+  if [[ -n ${RUNPOD_API_KEY:-} ]]; then echo "$RUNPOD_API_KEY"
   elif [[ -s $STATE/api_key ]]; then tr -d '[:space:]' < "$STATE/api_key"
-  else die "no API key: create one at https://cloudgpu.app/api and save it in $STATE/api_key"
+  else die "no API key: create one at https://console.runpod.io/user/settings and save it in $STATE/api_key"
   fi
 }
-api() {  # METHOD PATH [JSON body]; the key goes in a header file, not on the command line
+http() {  # METHOD URL [JSON body]; the key goes in a header file, not on the command line
   local key hdr; key="$(api_key)"
   hdr="$(mktemp "$STATE/.hdr.XXXXXX")"
   printf 'Authorization: Bearer %s\n' "$key" > "$hdr"
-  # The API sometimes stalls: time requests out, and retry the ones that are safe to repeat (not a create)
+  # Time requests out, and retry the ones that are safe to repeat (not a create)
   local out code attempts=4 i
-  [[ $1 == POST ]] && attempts=1
+  [[ $1 == POST && $2 != "$GRAPHQL" ]] && attempts=1
   for (( i = 1; i <= attempts; i++ )); do
     code=000
     if out="$(curl -sS --connect-timeout 15 --max-time 60 -w '\n%{http_code}' -X "$1" -H "@$hdr" \
-        -H 'Content-Type: application/json' ${3:+--data "$3"} "$API$2" 2>&1)"; then
+        -H 'Content-Type: application/json' ${3:+--data "$3"} "$2" 2>&1)"; then
       code="${out##*$'\n'}" out="${out%$'\n'*}"
       [[ $code == 5* ]] || break
     fi
-    (( i < attempts )) && { echo "  (CloudGPU API: ${code/#000/no answer}, retrying)" >&2; sleep $(( i * 5 )); }
+    (( i < attempts )) && { echo "  (RunPod API: ${code/#000/no answer}, retrying)" >&2; sleep $(( i * 5 )); }
   done
   rm -f "$hdr"
-  [[ $code != 000 ]] || die "CloudGPU API $1 $2: no answer ($out)"
+  [[ $code != 000 ]] || die "RunPod API $1 ${2#https://}: no answer ($out)"
   if [[ $code != 2* ]]; then
-    die "CloudGPU API $1 $2: HTTP $code $(jq -r '.error.message? // .' <<< "$out" 2>/dev/null || echo "$out")"
+    die "RunPod API $1 ${2#https://}: HTTP $code $(jq -r '(.error // .message // .)|tostring' <<< "$out" 2>/dev/null || echo "$out")"
   fi
   echo "$out"
 }
+rest() { http "$1" "$REST$2" "${3:-}"; }
+graphql() {  # QUERY -> .data, or dies with the errors
+  local out; out="$(http POST "$GRAPHQL" "$(jq -nc --arg q "$1" '{query: $q}')")"
+  jq -e '.errors | not' <<< "$out" >/dev/null || die "RunPod API: $(jq -r '[.errors[].message] | join("; ")' <<< "$out")"
+  jq '.data' <<< "$out"
+}
 
-instance_id() { [[ -s $STATE/instance_id ]] && cat "$STATE/instance_id"; }
-public() { jq 'del(.ssh)'; }  # instance JSON without the login
+pod_id() { [[ -s $STATE/pod_id ]] && cat "$STATE/pod_id"; }
+volume() {  # the network volume's JSON, or nothing
+  rest GET /networkvolumes | jq --arg n "$VOLUME_NAME" 'map(select(.name == $n)) | first // empty'
+}
+gpu_types() {
+  graphql '{ gpuTypes { id displayName memoryInGb securePrice secureCloud } }' | jq '.gpuTypes'
+}
+stock() {  # DATACENTER GPU_ID -> High/Medium/Low/none
+  graphql '{ dataCenters { id gpuAvailability { gpuTypeId stockStatus } } }' |
+    jq -r --arg d "$1" --arg g "$2" '.dataCenters[] | select(.id == $d) | .gpuAvailability[]? | select(.gpuTypeId == $g) | .stockStatus // empty' |
+    head -1 | grep . || echo none
+}
 
 ssh_cmd() { ssh -F "$STATE/ssh_config" "$HOST_ALIAS" "$@"; }
 ssh_ready() {  # wait for a working (shared) connection, which later ssh_cmd calls then reuse
-  for _ in $(seq 1 10); do ssh_cmd -o BatchMode=yes -o ConnectTimeout=20 true 2>/dev/null && return; sleep 10; done
-  die "can't connect to the instance over SSH"
+  for _ in $(seq 1 30); do ssh_cmd -o BatchMode=yes -o ConnectTimeout=15 true 2>/dev/null && return; sleep 10; done
+  die "can't connect to the pod over SSH"
 }
-
-write_ssh_config() {  # HOST PORT USER
+write_ssh_config() {  # HOST PORT
   cat > "$STATE/ssh_config" <<EOF
-# Written by cloud.sh for the rented instance $(instance_id); remote.sh gets it through SSH_CONFIG
+# Written by cloud.sh for the RunPod pod $(pod_id); remote.sh gets it through SSH_CONFIG
 Host $HOST_ALIAS
   HostName $1
   Port $2
-  User $3
+  User root
   IdentityFile $STATE/id_ed25519
   IdentitiesOnly yes
   UserKnownHostsFile $STATE/known_hosts
   StrictHostKeyChecking accept-new
   ServerAliveInterval 30
-  # One connection for everything: the provider's SSH entry point sometimes drops new connections
   ControlMaster auto
   ControlPath $STATE/cm-%C
   ControlPersist 10m
 EOF
-}
-
-install_key() {  # log in once with the password, add a key made for this instance
-  [[ -s $STATE/id_ed25519 ]] || ssh-keygen -q -t ed25519 -N '' -C "cloud.sh" -f "$STATE/id_ed25519"
-  local askpass="$STATE/askpass"
-  printf '#!/bin/sh\ncat %q\n' "$STATE/password" > "$askpass" && chmod 700 "$askpass"
-  for _ in $(seq 1 20); do
-    if SSH_ASKPASS="$askpass" SSH_ASKPASS_REQUIRE=force ssh -F "$STATE/ssh_config" \
-        -o IdentitiesOnly=yes -o PubkeyAuthentication=no -o PreferredAuthentications=password,keyboard-interactive \
-        -o ConnectTimeout=15 -o NumberOfPasswordPrompts=1 "$HOST_ALIAS" \
-        'umask 077 && mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys' < "$STATE/id_ed25519.pub" 2>"$STATE/ssh.err"; then
-      rm -f "$askpass" "$STATE/password"  # the key does from here on
-      ssh_cmd -o BatchMode=yes true && return
-      die "the key was added but key login fails"
-    fi
-    sleep 5  # sshd may not be up yet
-  done
-  rm -f "$askpass"
-  die "can't log in to the instance: $(tail -1 "$STATE/ssh.err")"
 }
 
 workflow_models() {  # NAME... -> JSON array of {name, url, directory} from the matching workflows
@@ -125,51 +131,80 @@ workflow_models() {  # NAME... -> JSON array of {name, url, directory} from the 
           | {name, url, directory}] | unique_by(.directory + "/" + .name)' "${files[@]}"
 }
 
-provision() {  # MODELS_JSON
+# Deletes the pod it runs on: runpodctl and the pod's own API key are part of RunPod's images
+SELF_DELETE='runpodctl remove pod "$RUNPOD_POD_ID" || curl -sS -X DELETE -H "Authorization: Bearer $RUNPOD_API_KEY" "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID"'
+
+provision() {  # MODELS_JSON IDLE_MINUTES
   local commit; commit="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
   git -C "$PROJECT_DIR" branch -r --contains "$commit" 2>/dev/null | grep -q . ||
-    echo "warning: $commit isn't pushed; the instance runs the newest pushed commit instead"
-  say "Installing this project on the instance (PyTorch and ComfyUI: a few minutes)"
+    echo "warning: $commit isn't pushed; the pod runs the newest pushed commit instead"
+  say "Setting up this project on the volume (the first time: PyTorch and ComfyUI, a few minutes)"
   ssh_cmd "bash -s" <<EOF
 set -euo pipefail
-command -v git >/dev/null && command -v curl >/dev/null || { apt-get update -qq && apt-get install -y -qq git curl; }
 [[ -d $REMOTE_DIR/.git ]] || git clone -q "$REPO_URL" $REMOTE_DIR
 cd $REMOTE_DIR
 git fetch -q origin && { git checkout -q "$commit" 2>/dev/null || git checkout -q origin/main; }
 ./setup.sh --no-service > setup.log 2>&1 || { tail -30 setup.log; exit 1; }
 grep -E '^torch .* OK on' setup.log || true
-pgrep -f "[m]ain.py --listen 127.0.0.1" >/dev/null || setsid nohup ./run.sh > comfyui.log 2>&1 < /dev/null &
-for _ in \$(seq 1 120); do curl -s -o /dev/null http://127.0.0.1:8188/ && exit 0; sleep 2; done
-tail -30 comfyui.log; exit 1
+pgrep -f "[m]ain.py --listen 127.0.0.1" >/dev/null || setsid nohup ./run.sh > /root/comfyui.log 2>&1 < /dev/null &
+for _ in \$(seq 1 150); do curl -s -o /dev/null http://127.0.0.1:8188/ && exit 0; sleep 2; done
+tail -30 /root/comfyui.log; exit 1
 EOF
-  say "Downloading $(jq length <<< "$1") models onto the instance"
-  jq -r '.[] | "  \(.directory)/\(.name)"' <<< "$1"
-  ssh_cmd "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:8188/server_models/download" \
-    <<< "$(jq -c '{models: .}' <<< "$1")" > "$STATE/downloads.json"
-  jq -e 'map(select(.state == "error")) | length == 0' "$STATE/downloads.json" >/dev/null ||
-    die "$(jq -r '.[] | select(.state == "error") | "\(.name): \(.error)"' "$STATE/downloads.json")"
-  local status
-  while :; do
-    status="$(ssh_cmd curl -sS http://127.0.0.1:8188/server_models/status)"
-    jq -r '[.[] | select(.state == "queued" or .state == "downloading")] |
-           "  \(map(.done) | add // 0 | . / 1e9 | floor) GB done, \(length) files to go"' <<< "$status"
-    jq -e 'any(.[]; .state == "queued" or .state == "downloading")' <<< "$status" >/dev/null || break
-    sleep 15
-  done
-  jq -e 'any(.[]; .state == "error")' <<< "$status" >/dev/null &&
-    die "$(jq -r '.[] | select(.state == "error") | "\(.name): \(.error)"' <<< "$status")"
-  return 0
+  if (( $(jq length <<< "$1") )); then
+    say "Models ($(jq length <<< "$1"); files already on the volume are kept)"
+    ssh_cmd "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:8188/server_models/download" \
+      <<< "$(jq -c '{models: .}' <<< "$1")" > "$STATE/downloads.json"
+    jq -r '.[] | "  \(.state | if . == "exists" then "have" elif . == "error" then "ERROR" else "get " end)  \(.name)\(if .error then ": " + .error else "" end)"' "$STATE/downloads.json"
+    jq -e 'map(select(.state == "error")) | length == 0' "$STATE/downloads.json" >/dev/null || die "some models can't be downloaded"
+    local status
+    while :; do
+      status="$(ssh_cmd curl -sS http://127.0.0.1:8188/server_models/status)"
+      jq -e 'any(.[]; .state == "queued" or .state == "downloading")' <<< "$status" >/dev/null || break
+      jq -r '[.[] | select(.state == "queued" or .state == "downloading")] |
+             "  \(map(.done) | add // 0 | . / 1e9 | floor) of \(map(.total) | add // 0 | . / 1e9 | floor)+ GB, \(length) files to go"' <<< "$status"
+      sleep 15
+    done
+    jq -e 'any(.[]; .state == "error")' <<< "$status" >/dev/null &&
+      die "$(jq -r '.[] | select(.state == "error") | "\(.name): \(.error)"' <<< "$status")"
+  fi
+  if (( $2 > 0 )); then
+    ssh_cmd "cat > /root/idle-watchdog.sh; pkill -f '[i]dle-watchdog.sh'; setsid nohup bash /root/idle-watchdog.sh > /root/idle-watchdog.log 2>&1 < /dev/null &" \
+      <<< "$(idle_watchdog "$2")"
+  fi
+}
+idle_watchdog() {  # IDLE_MINUTES -> a script for the pod
+  cat <<EOF
+# cloud.sh: delete this pod once it went $1 minutes without queued or running jobs or model downloads
+last=\$(date +%s)
+while sleep 60; do
+  if python3 - <<'PY'; then last=\$(date +%s); fi
+import json, sys, urllib.request
+get = lambda p: json.load(urllib.request.urlopen("http://127.0.0.1:8188" + p, timeout=10))
+try:
+    q, d = get("/queue"), get("/server_models/status")
+except Exception:
+    sys.exit(1)
+sys.exit(0 if q["queue_running"] or q["queue_pending"] or any(j["state"] in ("queued", "downloading") for j in d) else 1)
+PY
+  if (( \$(date +%s) - last >= $1 * 60 )); then
+    echo "\$(date): no jobs for $1 minutes, deleting this pod"
+    $SELF_DELETE
+    exit
+  fi
+done
+EOF
 }
 
 cmd_up() {
-  local gpu="RTX 4090" spend=5 hours=3 idle=30 yes=0 workflows=()
+  local gpu="RTX 4090" hours=3 idle=30 dc="" volume_gb=75 yes=0 workflows=()
   while (( $# )); do
     case "$1" in
       --gpu) gpu="$2"; shift ;;
       --workflow) workflows+=("$2"); shift ;;
-      --max-spend) spend="$2"; shift ;;
       --hours) hours="$2"; shift ;;
       --idle) idle="$2"; shift ;;
+      --datacenter) dc="$2"; shift ;;
+      --volume-gb) volume_gb="$2"; shift ;;
       --yes) yes=1 ;;
       *) die "unknown option: $1" ;;
     esac
@@ -177,76 +212,108 @@ cmd_up() {
   done
   (( ${#workflows[@]} )) || workflows=("People Edit Turbo" "People Edit 8GB")
   local models; models="$(workflow_models "${workflows[@]}")"
-  if [[ -n $(instance_id) ]]; then  # set up an instance rented before (a run that was interrupted, say)
-    local id; id="$(instance_id)"
-    echo "continuing with instance $id, rented before ($(api GET "/instances/$id" | jq -r .status)); ./cloud.sh down to drop it"
-    start_instance "$id" "$models"
+  if [[ -n $(pod_id) ]]; then  # set up a pod rented before (a run that was interrupted, say)
+    echo "continuing with pod $(pod_id), rented before; ./cloud.sh down to drop it"
+    start_pod "$models" "$idle"
     return
   fi
 
-  local offer account
-  offer="$(api GET /offers | jq --arg g "$gpu" '.data[] | select((.gpu_model | ascii_downcase) == ($g | ascii_downcase))')"
-  [[ -n $offer ]] || die "no GPU \"$gpu\"; ./cloud.sh offers lists them"
-  account="$(api GET /account)"
-  echo "$(jq -r '"\(.gpu_model), \(.vram_gb // "?") GB: $\(.hourly_usd)/h, availability \(.available)"' <<< "$offer")"
-  echo "limits: \$$spend, ${hours}h, destroyed after ${idle} min idle; balance \$$(jq -r '.balance_usd | tonumber * 100 | round / 100' <<< "$account")"
-  [[ $(jq -r .available <<< "$offer") != none ]] || die "$gpu is out of stock; pick another (./cloud.sh offers)"
+  local type gpu_id vol
+  type="$(gpu_types | jq --arg g "$gpu" 'map(select((.displayName | ascii_downcase) == ($g | ascii_downcase) or .id == $g)) | first // empty')"
+  [[ -n $type ]] || die "no GPU \"$gpu\"; ./cloud.sh offers lists them"
+  gpu_id="$(jq -r .id <<< "$type")"
+  vol="$(volume)"
+  if [[ -n $vol ]]; then
+    dc="$(jq -r .dataCenterId <<< "$vol")"
+  elif [[ -z $dc ]]; then  # a data center with the GPU in stock, preferring plenty
+    dc="$(graphql '{ dataCenters { id listed gpuAvailability { gpuTypeId stockStatus } } }' | jq -r --arg g "$gpu_id" '
+      [.dataCenters[] | select(.listed != false) | {id, s: ([.gpuAvailability[]? | select(.gpuTypeId == $g) | .stockStatus][0])}
+       | select(.s == "High" or .s == "Medium" or .s == "Low")]
+      | sort_by([{"High": 0, "Medium": 1, "Low": 2}[.s], (.id | startswith("US") | not)]) | first.id // empty')"
+    [[ -n $dc ]] || die "no data center has a $gpu in stock right now; try another GPU (./cloud.sh offers)"
+  fi
+  local price stock_now; price="$(jq -r .securePrice <<< "$type")" stock_now="$(stock "$dc" "$gpu_id")"
+  echo "$(jq -r '"\(.displayName), \(.memoryInGb) GB"' <<< "$type"): \$$price/h in $dc (stock: $stock_now)"
+  echo "limits: deleted after ${hours}h (at most \$$(jq -n "$price * $hours * 100 | ceil / 100")) or ${idle} min without jobs"
+  if [[ -n $vol ]]; then
+    echo "network volume: $(jq -r '"\(.id), \(.size) GB"' <<< "$vol") in $dc"
+  else
+    echo "network volume: none yet; creates a ${volume_gb} GB one in $dc (billed monthly by size until ./cloud.sh volume delete)"
+  fi
+  [[ $stock_now != none ]] || die "no $gpu in stock in $dc right now; try another GPU (./cloud.sh offers) or later"
   if [[ $yes == 0 ]]; then
     read -r -p "Rent it? [y/N] " answer
     [[ $answer == [yY]* ]] || exit 1
   fi
 
-  local body inst id
-  body="$(jq -nc --arg g "$(jq -r .gpu_model <<< "$offer")" --argjson s "$spend" --argjson h "$hours" --argjson i "$idle" \
-    '{gpu_model: $g, gpu_count: 1, max_minutes: ($h * 60 | ceil), max_spend_usd: $s, idle_minutes: $i}')"
-  inst="$(api POST /instances "$body")"
-  id="$(jq -r .id <<< "$inst")"
-  [[ $id != null ]] || die "no instance id in $(public <<< "$inst")"
-  echo "$id" > "$STATE/instance_id"
+  if [[ -z $vol ]]; then
+    vol="$(rest POST /networkvolumes "$(jq -nc --arg n "$VOLUME_NAME" --argjson s "$volume_gb" --arg d "$dc" '{name: $n, size: $s, dataCenterId: $d}')")"
+    echo "created network volume $(jq -r .id <<< "$vol")"
+  fi
+  [[ -s $STATE/id_ed25519 ]] || ssh-keygen -q -t ed25519 -N '' -C "cloud.sh" -f "$STATE/id_ed25519"
+  local deadline=$(( $(jq -n "$hours * 3600 | ceil") ))
+  local body pod
+  body="$(jq -nc --arg img "$IMAGE" --arg g "$gpu_id" --arg v "$(jq -r .id <<< "$vol")" --arg d "$dc" \
+    --arg key "$(cat "$STATE/id_ed25519.pub")" \
+    --arg start "(sleep $deadline; echo \"\$(date): time limit, deleting this pod\"; $SELF_DELETE) > /root/time-limit.log 2>&1 & exec /start.sh" \
+    '{name: "comfyui-remote", imageName: $img, gpuTypeIds: [$g], gpuCount: 1, cloudType: "SECURE",
+      networkVolumeId: $v, volumeMountPath: "/workspace", dataCenterIds: [$d], containerDiskInGb: 20,
+      ports: ["22/tcp"], env: {PUBLIC_KEY: $key}, dockerStartCmd: ["bash", "-c", $start]}')"
+  pod="$(rest POST /pods "$body")"
+  jq -r .id <<< "$pod" > "$STATE/pod_id"
+  [[ $(pod_id) != null ]] || { rm -f "$STATE/pod_id"; die "no pod id in $(jq -c . <<< "$pod")"; }
   rm -f "$STATE/known_hosts" "$STATE/ssh_config"
-  echo "instance $id: $(jq -r .status <<< "$inst")"
-
-  start_instance "$id" "$models"
+  echo "pod $(pod_id): \$$(jq -r .costPerHr <<< "$pod")/h"
+  start_pod "$models" "$idle"
 }
 
-start_instance() {  # ID MODELS_JSON: wait for it to run, log in, provision
-  local id="$1" inst status
-  say "Waiting for the instance to start"
-  for _ in $(seq 1 120); do
-    inst="$(api GET "/instances/$id")" status="$(jq -r .status <<< "$inst")"
-    [[ $status == running ]] && [[ $(jq -r '.ssh.host // empty' <<< "$inst") ]] && break
-    [[ $status == creating || $status == running ]] || die "instance $id is $status: $(public <<< "$inst" | jq -c .)"
+start_pod() {  # MODELS_JSON IDLE_MINUTES: wait for SSH, provision
+  local pod ip port
+  say "Waiting for the pod to start"
+  for _ in $(seq 1 90); do
+    pod="$(rest GET "/pods/$(pod_id)")"
+    [[ $(jq -r .desiredStatus <<< "$pod") == RUNNING ]] || die "pod $(pod_id) is $(jq -r .desiredStatus <<< "$pod")"
+    ip="$(jq -r '.publicIp // empty' <<< "$pod")" port="$(jq -r '.portMappings["22"] // empty' <<< "$pod")"
+    [[ -n $ip && -n $port ]] && break
     sleep 10
   done
-  [[ $status == running ]] || die "instance $id isn't running after 20 minutes (./cloud.sh down)"
-  if [[ ! -s $STATE/ssh_config ]] || ! ssh_cmd -o BatchMode=yes -o ConnectTimeout=15 true 2>/dev/null; then
-    (umask 077; jq -r .ssh.password <<< "$inst" > "$STATE/password")
-    write_ssh_config "$(jq -r .ssh.host <<< "$inst")" "$(jq -r .ssh.port <<< "$inst")" "$(jq -r '.ssh.user // "root"' <<< "$inst")"
-    install_key
-  fi
+  [[ -n $ip && -n $port ]] || die "pod $(pod_id) has no SSH address after 15 minutes (./cloud.sh down)"
+  write_ssh_config "$ip" "$port"
   ssh_ready
-  ssh_cmd 'nvidia-smi --query-gpu=name,memory.total --format=csv,noheader' || die "the instance has no working GPU (./cloud.sh down)"
-  provision "$models"
+  ssh_cmd 'nvidia-smi --query-gpu=name,memory.total --format=csv,noheader' || die "the pod has no working GPU (./cloud.sh down)"
+  provision "$1" "$2"
   say "Ready: ./cloud.sh connect (and ./cloud.sh down when you're done)"
 }
 
 cmd_connect() {
-  [[ -n $(instance_id) && -s $STATE/ssh_config ]] || die "nothing rented (./cloud.sh up)"
+  [[ -n $(pod_id) && -s $STATE/ssh_config ]] || die "nothing rented (./cloud.sh up)"
   ssh_ready
   SSH_CONFIG="$STATE/ssh_config" "$PROJECT_DIR/remote.sh" "$HOST_ALIAS" "$@"
 }
 
 cmd_down() {
-  local id; id="$(instance_id)" || { echo "nothing rented"; return; }
+  local id; id="$(pod_id)" || { echo "no pod rented"; return; }
   [[ ! -s $STATE/ssh_config ]] || ssh -F "$STATE/ssh_config" -O exit "$HOST_ALIAS" 2>/dev/null || true
-  api DELETE "/instances/$id" | public | jq -c '{id, status, gpu_model, minutes: (.running_minutes // .minutes), cost_usd: (.cost_usd // .cost)}'
-  rm -f "$STATE/instance_id" "$STATE/password" "$STATE/ssh_config" "$STATE/known_hosts" "$STATE/downloads.json"
+  rest DELETE "/pods/$id" > /dev/null
+  echo "deleted pod $id (the network volume stays; ./cloud.sh volume)"
+  rm -f "$STATE/pod_id" "$STATE/ssh_config" "$STATE/known_hosts" "$STATE/downloads.json"
 }
 
-cmd_run() {  # destroy the instance however this ends, including a failed provisioning
-  trap '[[ -z $(instance_id) ]] || { echo; echo "destroying the instance"; cmd_down; }' EXIT
+cmd_run() {  # delete the pod however this ends, including a failed setup
+  trap '[[ -z $(pod_id) ]] || { echo; echo "deleting the pod"; cmd_down; }' EXIT
   cmd_up "$@"
   cmd_connect || true
+}
+
+cmd_volume() {
+  local vol; vol="$(volume)"
+  [[ -n $vol ]] || { echo "no network volume named $VOLUME_NAME"; return; }
+  jq -c . <<< "$vol"
+  [[ ${1:-} == delete ]] || return 0
+  [[ -z $(pod_id) ]] || die "delete the pod first (./cloud.sh down)"
+  read -r -p "Delete the volume and everything on it (models, venv)? [y/N] " answer
+  [[ $answer == [yY]* ]] || exit 1
+  rest DELETE "/networkvolumes/$(jq -r .id <<< "$vol")" > /dev/null && echo "deleted"
 }
 
 case "${1:-}" in
@@ -254,9 +321,11 @@ case "${1:-}" in
   run) shift; cmd_run "$@" ;;
   connect) shift; cmd_connect "$@" ;;
   down) cmd_down ;;
-  status) id="$(instance_id)" || die "nothing rented"; api GET "/instances/$id" | public ;;
-  list) api GET /instances | jq '.data | map(del(.ssh))' ;;
-  offers) api GET /offers | jq -r '.data[] | "\(.gpu_model)\t\(.vram_gb // "?") GB\t$\(.hourly_usd)/h\t\(.available)"' | column -t -s $'\t' ;;
+  status) id="$(pod_id)" || die "no pod rented"
+          rest GET "/pods/$id" | jq '{id, desiredStatus, costPerHr, gpu: .gpu.displayName, publicIp, portMappings, lastStartedAt}' ;;
+  offers) gpu_types | jq -r 'map(select(.secureCloud and .securePrice > 0)) | sort_by(.securePrice)[] |
+            "\(.displayName)\t\(.memoryInGb) GB\t$\(.securePrice)/h"' | column -t -s $'\t' ;;
+  volume) shift; cmd_volume "$@" ;;
   ssh) shift; ssh_cmd "$@" ;;
   *) sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 2 ;;
 esac
