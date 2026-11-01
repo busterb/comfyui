@@ -2,15 +2,15 @@
 # Rent a GPU on RunPod (runpod.io) as an on-demand compute machine for remote.sh: the web UI, input/ and
 # output/ stay on this machine, the rented GPU only computes.
 #
-#   ./cloud.sh run [options]     rent a pod, set it up, run remote.sh against it, delete the pod when you quit
-#   ./cloud.sh up [options]      rent and set up only; then ./cloud.sh connect, and ./cloud.sh down when done
-#   ./cloud.sh connect           remote.sh against the rented pod
-#   ./cloud.sh down              delete the pod (the network volume, with the models, stays)
-#   ./cloud.sh status | offers | ssh [command]
-#   ./cloud.sh volume [delete]   the network volume: show it, or delete it with everything on it
+#   ./runpod.sh run [options]     rent a pod, set it up, run remote.sh against it, delete the pod when you quit
+#   ./runpod.sh up [options]      rent and set up only; then ./runpod.sh connect, and ./runpod.sh down when done
+#   ./runpod.sh connect           remote.sh against the rented pod
+#   ./runpod.sh down              delete the pod (the network volume, with the models, stays)
+#   ./runpod.sh status | offers | ssh [command]
+#   ./runpod.sh volume [delete]   the network volume: show it, or delete it with everything on it
 #
 # Options for up/run:
-#   --gpu NAME          GPU as `./cloud.sh offers` lists it (default "RTX 4090")
+#   --gpu NAME          GPU as `./runpod.sh offers` lists it (default "RTX 4090")
 #   --workflow NAME     download the models of the workflows whose file name contains NAME (repeatable;
 #                       default "People Edit Turbo" and "People Edit 8GB")
 #   --hours H           delete the pod after this long (default 3)
@@ -102,7 +102,7 @@ ssh_ready() {  # wait for a working (shared) connection, which later ssh_cmd cal
 }
 write_ssh_config() {  # HOST PORT
   cat > "$STATE/ssh_config" <<EOF
-# Written by cloud.sh for the RunPod pod $(pod_id); remote.sh gets it through SSH_CONFIG
+# Written by runpod.sh for the RunPod pod $(pod_id); remote.sh gets it through SSH_CONFIG
 Host $HOST_ALIAS
   HostName $1
   Port $2
@@ -174,7 +174,7 @@ EOF
 }
 idle_watchdog() {  # IDLE_MINUTES -> a script for the pod
   cat <<EOF
-# cloud.sh: delete this pod once it went $1 minutes without queued or running jobs or model downloads
+# runpod.sh: delete this pod once it went $1 minutes without queued or running jobs or model downloads
 last=\$(date +%s)
 while sleep 60; do
   if python3 - <<'PY'; then last=\$(date +%s); fi
@@ -213,14 +213,14 @@ cmd_up() {
   (( ${#workflows[@]} )) || workflows=("People Edit Turbo" "People Edit 8GB")
   local models; models="$(workflow_models "${workflows[@]}")"
   if [[ -n $(pod_id) ]]; then  # set up a pod rented before (a run that was interrupted, say)
-    echo "continuing with pod $(pod_id), rented before; ./cloud.sh down to drop it"
+    echo "continuing with pod $(pod_id), rented before; ./runpod.sh down to drop it"
     start_pod "$models" "$idle"
     return
   fi
 
   local type gpu_id vol
   type="$(gpu_types | jq --arg g "$gpu" 'map(select((.displayName | ascii_downcase) == ($g | ascii_downcase) or .id == $g)) | first // empty')"
-  [[ -n $type ]] || die "no GPU \"$gpu\"; ./cloud.sh offers lists them"
+  [[ -n $type ]] || die "no GPU \"$gpu\"; ./runpod.sh offers lists them"
   gpu_id="$(jq -r .id <<< "$type")"
   vol="$(volume)"
   if [[ -n $vol ]]; then
@@ -230,7 +230,7 @@ cmd_up() {
       [.dataCenters[] | select(.listed != false) | {id, s: ([.gpuAvailability[]? | select(.gpuTypeId == $g) | .stockStatus][0])}
        | select(.s == "High" or .s == "Medium" or .s == "Low")]
       | sort_by([{"High": 0, "Medium": 1, "Low": 2}[.s], (.id | startswith("US") | not)]) | first.id // empty')"
-    [[ -n $dc ]] || die "no data center has a $gpu in stock right now; try another GPU (./cloud.sh offers)"
+    [[ -n $dc ]] || die "no data center has a $gpu in stock right now; try another GPU (./runpod.sh offers)"
   fi
   local price stock_now; price="$(jq -r .securePrice <<< "$type")" stock_now="$(stock "$dc" "$gpu_id")"
   echo "$(jq -r '"\(.displayName), \(.memoryInGb) GB"' <<< "$type"): \$$price/h in $dc (stock: $stock_now)"
@@ -238,9 +238,9 @@ cmd_up() {
   if [[ -n $vol ]]; then
     echo "network volume: $(jq -r '"\(.id), \(.size) GB"' <<< "$vol") in $dc"
   else
-    echo "network volume: none yet; creates a ${volume_gb} GB one in $dc (billed monthly by size until ./cloud.sh volume delete)"
+    echo "network volume: none yet; creates a ${volume_gb} GB one in $dc (billed monthly by size until ./runpod.sh volume delete)"
   fi
-  [[ $stock_now != none ]] || die "no $gpu in stock in $dc right now; try another GPU (./cloud.sh offers) or later"
+  [[ $stock_now != none ]] || die "no $gpu in stock in $dc right now; try another GPU (./runpod.sh offers) or later"
   if [[ $yes == 0 ]]; then
     read -r -p "Rent it? [y/N] " answer
     [[ $answer == [yY]* ]] || exit 1
@@ -250,7 +250,7 @@ cmd_up() {
     vol="$(rest POST /networkvolumes "$(jq -nc --arg n "$VOLUME_NAME" --argjson s "$volume_gb" --arg d "$dc" '{name: $n, size: $s, dataCenterId: $d}')")"
     echo "created network volume $(jq -r .id <<< "$vol")"
   fi
-  [[ -s $STATE/id_ed25519 ]] || ssh-keygen -q -t ed25519 -N '' -C "cloud.sh" -f "$STATE/id_ed25519"
+  [[ -s $STATE/id_ed25519 ]] || ssh-keygen -q -t ed25519 -N '' -C "runpod.sh" -f "$STATE/id_ed25519"
   local deadline=$(( $(jq -n "$hours * 3600 | ceil") ))
   local body pod
   body="$(jq -nc --arg img "$IMAGE" --arg g "$gpu_id" --arg v "$(jq -r .id <<< "$vol")" --arg d "$dc" \
@@ -277,16 +277,16 @@ start_pod() {  # MODELS_JSON IDLE_MINUTES: wait for SSH, provision
     [[ -n $ip && -n $port ]] && break
     sleep 10
   done
-  [[ -n $ip && -n $port ]] || die "pod $(pod_id) has no SSH address after 15 minutes (./cloud.sh down)"
+  [[ -n $ip && -n $port ]] || die "pod $(pod_id) has no SSH address after 15 minutes (./runpod.sh down)"
   write_ssh_config "$ip" "$port"
   ssh_ready
-  ssh_cmd 'nvidia-smi --query-gpu=name,memory.total --format=csv,noheader' || die "the pod has no working GPU (./cloud.sh down)"
+  ssh_cmd 'nvidia-smi --query-gpu=name,memory.total --format=csv,noheader' || die "the pod has no working GPU (./runpod.sh down)"
   provision "$1" "$2"
-  say "Ready: ./cloud.sh connect (and ./cloud.sh down when you're done)"
+  say "Ready: ./runpod.sh connect (and ./runpod.sh down when you're done)"
 }
 
 cmd_connect() {
-  [[ -n $(pod_id) && -s $STATE/ssh_config ]] || die "nothing rented (./cloud.sh up)"
+  [[ -n $(pod_id) && -s $STATE/ssh_config ]] || die "nothing rented (./runpod.sh up)"
   ssh_ready
   SSH_CONFIG="$STATE/ssh_config" "$PROJECT_DIR/remote.sh" "$HOST_ALIAS" "$@"
 }
@@ -295,7 +295,7 @@ cmd_down() {
   local id; id="$(pod_id)" || { echo "no pod rented"; return; }
   [[ ! -s $STATE/ssh_config ]] || ssh -F "$STATE/ssh_config" -O exit "$HOST_ALIAS" 2>/dev/null || true
   rest DELETE "/pods/$id" > /dev/null
-  echo "deleted pod $id (the network volume stays; ./cloud.sh volume)"
+  echo "deleted pod $id (the network volume stays; ./runpod.sh volume)"
   rm -f "$STATE/pod_id" "$STATE/ssh_config" "$STATE/known_hosts" "$STATE/downloads.json"
 }
 
@@ -310,7 +310,7 @@ cmd_volume() {
   [[ -n $vol ]] || { echo "no network volume named $VOLUME_NAME"; return; }
   jq -c . <<< "$vol"
   [[ ${1:-} == delete ]] || return 0
-  [[ -z $(pod_id) ]] || die "delete the pod first (./cloud.sh down)"
+  [[ -z $(pod_id) ]] || die "delete the pod first (./runpod.sh down)"
   read -r -p "Delete the volume and everything on it (models, venv)? [y/N] " answer
   [[ $answer == [yY]* ]] || exit 1
   rest DELETE "/networkvolumes/$(jq -r .id <<< "$vol")" > /dev/null && echo "deleted"

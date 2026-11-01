@@ -38,7 +38,8 @@ inside the project directory. The only thing outside it is the systemd user unit
 run.sh           start ComfyUI on 127.0.0.1:8188 with flags for this machine's GPU
 setup.sh         detect hardware, build .venv with the right PyTorch, link custom nodes and workflows, systemd unit
 remote.sh        run ComfyUI here but compute on another machine (see Remote compute)
-cloud.sh         rent a cloud GPU (RunPod) as that other machine, on demand
+runpod.sh        rent a cloud GPU on RunPod as that other machine, on demand
+cloudgpu.sh      the same on CloudGPU (no persistent storage: small models only)
 dist.sh          package the project as a tarball for a machine without git access
 hf.sh            the Hugging Face CLI, with its token kept in .cache/
 comfyui.service  systemd user unit (setup.sh links it)
@@ -99,24 +100,29 @@ models nor a GPU.
 
 ### On a rented cloud GPU
 
-`cloud.sh` rents a [RunPod](https://www.runpod.io) pod and uses it as the compute machine. The project, its
+`runpod.sh` rents a [RunPod](https://www.runpod.io) pod and uses it as the compute machine. The project, its
 venv and the models live on a RunPod network volume, which outlives the pods: the first pod clones this
 repository (at the local commit), runs `setup.sh` and downloads the chosen workflows' models; later pods only
 start ComfyUI. Put an API key in `.cache/runpod/api_key` first.
 
 ```sh
-./cloud.sh offers                       # GPUs and prices (Secure Cloud, which network volumes need)
-./cloud.sh run                          # rent an RTX 4090 for the People Edit Turbo and 8GB workflows,
+./runpod.sh offers                       # GPUs and prices (Secure Cloud, which network volumes need)
+./runpod.sh run                          # rent an RTX 4090 for the People Edit Turbo and 8GB workflows,
                                         # run remote.sh against it, delete the pod when you quit
-./cloud.sh run --gpu "RTX 5090" --workflow "Wan 2.2 5B" --hours 1
-./cloud.sh up; ./cloud.sh connect; ./cloud.sh down   # the same in steps
-./cloud.sh volume [delete]              # the network volume (billed monthly by size)
+./runpod.sh run --gpu "RTX 5090" --workflow "Wan 2.2 5B" --hours 1
+./runpod.sh up; ./runpod.sh connect; ./runpod.sh down   # the same in steps
+./runpod.sh volume [delete]              # the network volume (billed monthly by size)
 ```
 
 It asks before renting. Each pod deletes itself after a time limit (default 3 hours, enforced on the pod from
 the start, so it holds if this machine goes offline) and after 30 minutes without jobs. A volume lives in one
 data center, so pods can only be rented where it is. Your images pass through the pod's memory while jobs run;
 nothing of yours is written to the volume.
+
+`cloudgpu.sh` does the same on [CloudGPU](https://cloudgpu.app), which is cheaper per hour but has no persistent
+storage: every rental installs the project and downloads its models again, and its machines have downloaded
+from Hugging Face at only 1-7 MB/s. It defaults to the People Edit 8GB workflow (about 10 GB of models) and also
+asks before renting; spending, time and idle limits are enforced by CloudGPU.
 
 ## Security notes
 
@@ -132,10 +138,11 @@ every route the custom nodes add. This project relies on that port never being e
 - `server_model_downloader` downloads files from huggingface.co, github.com and civitai.com into the models
   folder on request, using the Hugging Face token stored in `.cache/`. `server_image_manager` can delete
   images and videos in `input/` and `output/`. Both are only as safe as access to the port.
-- `cloud.sh` keeps the RunPod API key, an SSH key made for the pods and their host keys in `.cache/runpod/`.
-  The pod's ComfyUI also stays on its localhost, reached through the SSH tunnel; only SSH is exposed. Pods
-  never get your Hugging Face token (so gated models can't be downloaded there) or your RunPod API key; they
-  delete themselves with the key RunPod gives each pod.
+- `runpod.sh` and `cloudgpu.sh` keep their API key, an SSH key made for the rented machines and those
+  machines' host keys in `.cache/runpod/` and `.cache/cloudgpu/`. `cloudgpu.sh` logs in once with the password
+  the API returns, adds its key and deletes the password. The rented machine's ComfyUI also stays on its
+  localhost, reached through the SSH tunnel. Rented machines never get your Hugging Face token (so gated models
+  can't be downloaded there) or your API key; RunPod pods delete themselves with the key RunPod gives each pod.
 - The Hugging Face token lives in `.cache/huggingface/`, which git ignores; `dist.sh` refuses to package it.
 - Custom nodes run with your user's privileges. Read third-party nodes before installing them.
 
