@@ -61,7 +61,7 @@ GFX="" GTT_MB=0 IGPU=0
 if [[ -z $GPU_NAME ]]; then
   for props in /sys/class/kfd/kfd/topology/nodes/*/properties; do
     [[ -r $props ]] || continue
-    v="$(awk '$1 == "gfx_target_version" {print $2}' "$props")"
+    v="$(awk '$1 == "gfx_target_version" {print $2}' "$props" 2>/dev/null || true)"  # unreadable in some containers
     [[ ${v:-0} -gt 0 ]] || continue
     GFX="$(printf 'gfx%d%d%x' $((v / 10000)) $((v / 100 % 100)) $((v % 100)))"
     [[ "$(awk '$1 == "local_mem_size" {print $2}' "$props")" == 0 ]] && IGPU=1  # integrated: no dedicated VRAM
