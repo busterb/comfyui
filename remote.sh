@@ -12,6 +12,10 @@
 # so HOST's ComfyUI stays bound to its localhost. Extra arguments are passed on to run.sh.
 set -euo pipefail
 
+# Read in full before running (bash otherwise reads a script as it goes), so editing this file or a git pull
+# while it runs can't make it run something else; it ends with exit for the same reason.
+{
+
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOST="${1:?usage: ./remote.sh HOST [run.sh arguments]}"
 shift
@@ -55,3 +59,5 @@ COMFYUI_REMOTE_URL="http://127.0.0.1:$TUNNEL_PORT" "$PROJECT_DIR/run.sh" --cpu \
   --database-url "sqlite:///$PROJECT_DIR/ComfyUI/user/comfyui-client-$COMFYUI_PORT.db" "$@" &
 COMFY=$!
 wait $COMFY
+exit
+}

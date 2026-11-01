@@ -374,6 +374,9 @@ cmd_volume() {  # [delete DATACENTER]
   rest DELETE "/networkvolumes/$(jq -r .id <<< "$vol")" > /dev/null && echo "deleted"
 }
 
+# Read in full before running (bash otherwise reads a script as it goes), so editing this file or a git pull
+# while it runs can't make it run something else; it ends with exit for the same reason.
+{
 case "${1:-}" in
   up) shift; cmd_up "$@" ;;
   run) shift; cmd_run "$@" ;;
@@ -387,3 +390,5 @@ case "${1:-}" in
   ssh) shift; ssh_cmd "$@" ;;
   *) sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 2 ;;
 esac
+exit
+}
