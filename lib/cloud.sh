@@ -38,7 +38,7 @@ fetch() {
   if [[ "$(awk "/^HTTP\// {c=\$2} END {print c}" <<< "$head")" != 200 ]]; then
     awk "/^HTTP\// {l=\$0} END {print \"HTTP: \" l}" <<< "$head" > "$status/$name.err"; return
   fi
-  awk "tolower(\$1) ~ /^(x-linked-size|content-length):/ {s=\$2} END {print s+0}" <<< "$head" > "$status/$name.size"
+  awk "tolower(\$1) ~ /^(x-linked-size|content-length):/ {s=\$2} END {print (s == \"\" ? 0 : s)}" <<< "$head" > "$status/$name.size"
   if curl -fsSL --retry 5 --retry-all-errors --connect-timeout 30 -C - -o "$dest.part" "$url" 2> "$status/$name.log"; then
     mv "$dest.part" "$dest" && touch "$status/$name.ok"
   else
@@ -83,7 +83,9 @@ set -euo pipefail
 cd $REMOTE_DIR
 ./setup.sh --no-service > setup.log 2>&1 || { tail -30 setup.log; exit 1; }
 grep -E '^torch .* OK on' setup.log || true
-pgrep -f "[m]ain.py --listen 127.0.0.1" >/dev/null || setsid nohup ./run.sh > /root/comfyui.log 2>&1 < /dev/null &
+.uv/bin/uv cache clean -q 2>/dev/null || true  # packages are in the venv; the download cache only takes space
+# (an "a || b &" would background a subshell holding this SSH session's output open, so the session never ends)
+if ! pgrep -f "[m]ain.py --listen 127.0.0.1" >/dev/null; then setsid nohup ./run.sh > /root/comfyui.log 2>&1 < /dev/null & fi
 for _ in \$(seq 1 150); do curl -s -o /dev/null http://127.0.0.1:8188/ && exit 0; sleep 2; done
 tail -30 /root/comfyui.log; exit 1
 EOF
@@ -95,9 +97,9 @@ EOF
     sleep 15
     report="$(ssh_cmd "cd /root/model-status 2>/dev/null || { echo 0 0 0 0 0 0; exit; }
       ok=\$(ls *.ok 2>/dev/null | wc -l) err=\$(ls *.err 2>/dev/null | wc -l)
-      total=\$(cat *.size 2>/dev/null | awk '{s+=\$1} END {print s+0}')
-      got=\$(for f in *.size; do n=\${f%.size}; [[ -e \$n.ok ]] && cat \"\$f\"; done 2>/dev/null | awk '{s+=\$1} END {print s+0}')
-      part=\$(find $REMOTE_DIR/ComfyUI/models -name '*.part' -printf '%s\n' 2>/dev/null | awk '{s+=\$1} END {print s+0}')
+      total=\$(cat *.size 2>/dev/null | awk '{s+=\$1} END {printf \"%.0f\\n\", s}')
+      got=\$(for f in *.size; do n=\${f%.size}; [[ -e \$n.ok ]] && cat \"\$f\"; done 2>/dev/null | awk '{s+=\$1} END {printf \"%.0f\\n\", s}')
+      part=\$(find $REMOTE_DIR/ComfyUI/models -name '*.part' -printf '%s\n' 2>/dev/null | awk '{s+=\$1} END {printf \"%.0f\\n\", s}')
       echo \$ok \$err \$((got + part)) \$total \$([[ -e .done ]] && echo 1 || echo 0) \$(pgrep -f '[f]etch $REMOTE_DIR/ComfyUI/models' >/dev/null && echo 1 || echo 0)")" ||
       continue  # a dropped connection: ask again
     read -r ok err got total finished running <<< "$report"

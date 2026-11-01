@@ -108,7 +108,7 @@ start ComfyUI. Put an API key in `.cache/runpod/api_key` first.
 
 ```sh
 ./runpod.sh offers                       # GPUs and prices (Secure Cloud, which network volumes need)
-./runpod.sh run                          # rent an RTX 4090 for the People Edit Turbo and 8GB workflows,
+./runpod.sh run                          # rent an RTX 4090 for the People Edit Turbo workflows,
                                         # run remote.sh against it, delete the pod when you quit
 ./runpod.sh run --gpu "RTX 5090" --workflow "Wan 2.2 5B" --hours 1
 ./runpod.sh up; ./runpod.sh connect; ./runpod.sh down   # the same in steps

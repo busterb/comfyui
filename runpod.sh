@@ -12,7 +12,7 @@
 # Options for up/run:
 #   --gpu NAME          GPU as `./runpod.sh offers` lists it (default "RTX 4090")
 #   --workflow NAME     download the models of the workflows whose file name contains NAME (repeatable;
-#                       default "People Edit Turbo" and "People Edit 8GB")
+#                       default "People Edit Turbo")
 #   --hours H           delete the pod after this long (default 3)
 #   --idle MINUTES      delete the pod after this long without jobs (default 30, 0 = off)
 #   --datacenter ID     where to create the network volume (first run only; default: the one with the most of
@@ -163,7 +163,7 @@ cmd_up() {
     esac
     shift
   done
-  (( ${#workflows[@]} )) || workflows=("People Edit Turbo" "People Edit 8GB")
+  (( ${#workflows[@]} )) || workflows=("People Edit Turbo")
   local models; models="$(workflow_models "${workflows[@]}")"
   if [[ -n $(pod_id) ]]; then  # set up a pod rented before (a run that was interrupted, say)
     echo "continuing with pod $(pod_id), rented before; ./runpod.sh down to drop it"
