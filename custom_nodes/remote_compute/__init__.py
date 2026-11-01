@@ -11,6 +11,7 @@ import os
 
 from . import server_side
 
+WEB_DIRECTORY = "./js"  # warns in the browser before a rented compute server's time limit
 NODE_CLASS_MAPPINGS = dict(server_side.NODE_CLASS_MAPPINGS)
 NODE_DISPLAY_NAME_MAPPINGS = dict(server_side.NODE_DISPLAY_NAME_MAPPINGS)
 

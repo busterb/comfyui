@@ -32,8 +32,9 @@ UPLOAD_PART = 64 * 1024**2  # stays under the server's default 100 MB --max-uplo
 PREVIEW_IMAGE, PREVIEW_IMAGE_WITH_METADATA = 1, 4
 RELAYED_EVENTS = {"executing", "progress", "progress_state", "execution_cached"}
 REMOTE_MODEL_ROUTES = ("/models", "/experiment/models", "/embeddings")
-# Routes forwarded with any method: "Download missing models to server" should fetch onto the compute server
-REMOTE_ROUTES = ("/server_models/",)
+# Routes forwarded with any method: "Download missing models to server" should fetch onto the compute server,
+# and the browser's time-limit warning asks about the compute server's limit
+REMOTE_ROUTES = ("/server_models/", "/remote_compute/deadline")
 ORIGINAL_PROMPT = "remote_compute_prompt"  # extra_data key
 
 server = PromptServer.instance

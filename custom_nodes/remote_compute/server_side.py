@@ -8,6 +8,7 @@ Nothing touches the disk. Anything left behind by a client that went away expire
 """
 
 import logging
+import os
 import threading
 import time
 
@@ -45,6 +46,24 @@ def _reserve(n):
 
 
 routes = PromptServer.instance.routes
+
+
+@routes.get("/remote_compute/deadline")
+async def deadline(request):
+    """When this machine deletes itself (a rented cloud GPU's time limit), for the client's browser to warn about.
+
+    The cloud scripts start ComfyUI with REMOTE_COMPUTE_DEADLINE_FILE, a file holding that time in Unix seconds,
+    and REMOTE_COMPUTE_DEADLINE_HINT, how to extend it. Without them the deadline is null.
+    """
+    t = None
+    path = os.environ.get("REMOTE_COMPUTE_DEADLINE_FILE")
+    if path:
+        try:
+            with open(path) as f:
+                t = int(f.read().strip())
+        except (OSError, ValueError):
+            pass
+    return web.json_response({"deadline": t, "now": int(time.time()), "hint": os.environ.get("REMOTE_COMPUTE_DEADLINE_HINT", "")})
 
 
 @routes.put("/remote_compute/value/{fp}")

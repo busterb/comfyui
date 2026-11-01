@@ -33,6 +33,8 @@ API="https://cloudgpu.app/v1/gpu"
 HOST_ALIAS=cloudgpu
 REPO_URL="https://github.com/busterb/comfyui.git"
 REMOTE_DIR=/root/comfyui
+DEADLINE_FILE=/root/deadline  # the time limit CloudGPU enforces (it may also stop earlier, at the spending cap)
+DEADLINE_HINT="CloudGPU's limit is set when renting (./cloudgpu.sh up --hours) and can't be extended"
 mkdir -p "$STATE" && chmod 700 "$STATE"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -182,6 +184,7 @@ start_instance() {  # ID MODELS_JSON: wait for it to run, log in, provision
   fi
   ssh_ready
   ssh_cmd 'nvidia-smi --query-gpu=name,memory.total --format=csv,noheader' || die "the instance has no working GPU (./cloudgpu.sh down)"
+  ssh_cmd "echo $(jq -r '.limits.expires_at // empty' <<< "$inst") > $DEADLINE_FILE"
   provision "$models"
   say "Ready: ./cloudgpu.sh connect (and ./cloudgpu.sh down when you're done)"
 }

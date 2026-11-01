@@ -44,6 +44,8 @@ VOLUME_NAME="comfyui"  # and comfyui-<data center> for more volumes
 HOST_ALIAS=runpod
 REPO_URL="https://github.com/busterb/comfyui.git"
 REMOTE_DIR=/workspace/comfyui
+DEADLINE_FILE=/root/deadline  # written at the pod's start, moved by ./runpod.sh extend
+DEADLINE_HINT="Extend it with ./runpod.sh extend HOURS"
 mkdir -p "$STATE" && chmod 700 "$STATE"
 
 die() { echo "ERROR: $*" >&2; exit 1; }

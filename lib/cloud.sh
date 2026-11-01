@@ -1,7 +1,8 @@
 # Shared by the cloud GPU scripts (*.sh at the project root that source it): set up this project on a rented
 # machine over SSH.
 # The including script sets PROJECT_DIR, STATE (with ssh_config in it), HOST_ALIAS, REPO_URL and REMOTE_DIR, and
-# defines die and say.
+# defines die and say. DEADLINE_FILE (on the rented machine: when it deletes itself, in Unix seconds) and
+# DEADLINE_HINT (how to extend that) are optional; ComfyUI there reports them to the browser, which warns.
 
 ssh_cmd() { ssh -F "$STATE/ssh_config" "$HOST_ALIAS" "$@"; }
 ssh_ready() {  # wait for a working (shared) connection, which later ssh_cmd calls then reuse
@@ -78,13 +79,19 @@ EOF
   fi
 
   say "Setting up and starting ComfyUI (models download meanwhile); a new machine or volume installs PyTorch and ComfyUI first, a few minutes"
+  local settings  # ComfyUI's environment there
+  settings="REMOTE_COMPUTE_DEADLINE_FILE=$(printf %q "${DEADLINE_FILE:-}") REMOTE_COMPUTE_DEADLINE_HINT=$(printf %q "${DEADLINE_HINT:-}")"
   ssh_cmd "bash -s" <<EOF
 set -euo pipefail
 cd $REMOTE_DIR
 ./setup.sh --no-service > setup.log 2>&1 || { tail -30 setup.log; exit 1; }
 grep -E '^torch .* OK on' setup.log || true
+pid=\$(pgrep -f "[m]ain.py --listen 127.0.0.1" | head -1 || true)
+if [[ -n \$pid ]] && ! tr '\\0' '\\n' < /proc/\$pid/environ | grep -qxF "REMOTE_COMPUTE_DEADLINE_FILE=${DEADLINE_FILE:-}"; then
+  kill \$pid; sleep 5; pid=  # started with other settings (by an older version of this script, say)
+fi
 # (an "a || b &" would background a subshell holding this SSH session's output open, so the session never ends)
-if ! pgrep -f "[m]ain.py --listen 127.0.0.1" >/dev/null; then setsid nohup ./run.sh > /root/comfyui.log 2>&1 < /dev/null & fi
+if [[ -z \$pid ]]; then $settings setsid nohup ./run.sh > /root/comfyui.log 2>&1 < /dev/null & fi
 for _ in \$(seq 1 150); do curl -s -o /dev/null http://127.0.0.1:8188/ && exit 0; sleep 2; done
 tail -30 /root/comfyui.log; exit 1
 EOF
