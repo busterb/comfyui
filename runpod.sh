@@ -7,7 +7,7 @@
 #   ./runpod.sh connect           remote.sh against the rented pod
 #   ./runpod.sh down              delete the pod (the network volume, with the models, stays)
 #   ./runpod.sh extend HOURS      push the pod's time limit back
-#   ./runpod.sh offers           GPUs in stock in the volume's data center, then elsewhere
+#   ./runpod.sh offers            GPUs in stock in the volume's data center, then elsewhere
 #   ./runpod.sh status | ssh [command]
 #   ./runpod.sh volume [delete]   the network volume: show it, or delete it with everything on it
 #
