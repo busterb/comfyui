@@ -40,6 +40,7 @@ setup.sh         detect hardware, build .venv with the right PyTorch, link custo
 remote.sh        run ComfyUI here but compute on another machine (see Remote compute)
 runpod.sh        rent a cloud GPU on RunPod as that other machine, on demand
 cloudgpu.sh      the same on CloudGPU (no persistent storage: small models only)
+lib/cloud.sh     what those two share: setting up the project and fetching models over SSH
 dist.sh          package the project as a tarball for a machine without git access
 hf.sh            the Hugging Face CLI, with its token kept in .cache/
 comfyui.service  systemd user unit (setup.sh links it)

@@ -45,6 +45,8 @@ mkdir -p "$STATE" && chmod 700 "$STATE"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 say() { printf '\n== %s\n' "$*"; }
+# shellcheck source=lib/cloud.sh
+. "$PROJECT_DIR/lib/cloud.sh"
 
 api_key() {
   if [[ -n ${RUNPOD_API_KEY:-} ]]; then echo "$RUNPOD_API_KEY"
@@ -95,11 +97,6 @@ stock() {  # DATACENTER GPU_ID -> High/Medium/Low/none
     head -1 | grep . || echo none
 }
 
-ssh_cmd() { ssh -F "$STATE/ssh_config" "$HOST_ALIAS" "$@"; }
-ssh_ready() {  # wait for a working (shared) connection, which later ssh_cmd calls then reuse
-  for _ in $(seq 1 30); do ssh_cmd -o BatchMode=yes -o ConnectTimeout=15 true 2>/dev/null && return; sleep 10; done
-  die "can't connect to the pod over SSH"
-}
 write_ssh_config() {  # HOST PORT
   cat > "$STATE/ssh_config" <<EOF
 # Written by runpod.sh for the RunPod pod $(pod_id); remote.sh gets it through SSH_CONFIG
@@ -113,60 +110,16 @@ Host $HOST_ALIAS
   StrictHostKeyChecking accept-new
   ServerAliveInterval 30
   ControlMaster auto
-  ControlPath $STATE/cm-%C
+  ControlPath ${XDG_RUNTIME_DIR:-/tmp}/comfyui-ssh-%C
   ControlPersist 10m
 EOF
-}
-
-workflow_models() {  # NAME... -> JSON array of {name, url, directory} from the matching workflows
-  local files=() name f
-  for name in "$@"; do
-    local found=0
-    for f in "$PROJECT_DIR"/workflows/*.json; do
-      [[ $(basename "$f") == *"$name"* ]] && files+=("$f") found=1
-    done
-    [[ $found == 1 ]] || die "no workflow matches \"$name\" in workflows/"
-  done
-  jq -s '[.[] | .. | objects | select(has("models")) | .models[]? | select(type == "object" and .url and .name and .directory)
-          | {name, url, directory}] | unique_by(.directory + "/" + .name)' "${files[@]}"
 }
 
 # Deletes the pod it runs on: runpodctl and the pod's own API key are part of RunPod's images
 SELF_DELETE='runpodctl remove pod "$RUNPOD_POD_ID" || curl -sS -X DELETE -H "Authorization: Bearer $RUNPOD_API_KEY" "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID"'
 
 provision() {  # MODELS_JSON IDLE_MINUTES
-  local commit; commit="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
-  git -C "$PROJECT_DIR" branch -r --contains "$commit" 2>/dev/null | grep -q . ||
-    echo "warning: $commit isn't pushed; the pod runs the newest pushed commit instead"
-  say "Setting up this project on the volume (the first time: PyTorch and ComfyUI, a few minutes)"
-  ssh_cmd "bash -s" <<EOF
-set -euo pipefail
-[[ -d $REMOTE_DIR/.git ]] || git clone -q "$REPO_URL" $REMOTE_DIR
-cd $REMOTE_DIR
-git fetch -q origin && { git checkout -q "$commit" 2>/dev/null || git checkout -q origin/main; }
-./setup.sh --no-service > setup.log 2>&1 || { tail -30 setup.log; exit 1; }
-grep -E '^torch .* OK on' setup.log || true
-pgrep -f "[m]ain.py --listen 127.0.0.1" >/dev/null || setsid nohup ./run.sh > /root/comfyui.log 2>&1 < /dev/null &
-for _ in \$(seq 1 150); do curl -s -o /dev/null http://127.0.0.1:8188/ && exit 0; sleep 2; done
-tail -30 /root/comfyui.log; exit 1
-EOF
-  if (( $(jq length <<< "$1") )); then
-    say "Models ($(jq length <<< "$1"); files already on the volume are kept)"
-    ssh_cmd "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:8188/server_models/download" \
-      <<< "$(jq -c '{models: .}' <<< "$1")" > "$STATE/downloads.json"
-    jq -r '.[] | "  \(.state | if . == "exists" then "have" elif . == "error" then "ERROR" else "get " end)  \(.name)\(if .error then ": " + .error else "" end)"' "$STATE/downloads.json"
-    jq -e 'map(select(.state == "error")) | length == 0' "$STATE/downloads.json" >/dev/null || die "some models can't be downloaded"
-    local status
-    while :; do
-      status="$(ssh_cmd curl -sS http://127.0.0.1:8188/server_models/status)"
-      jq -e 'any(.[]; .state == "queued" or .state == "downloading")' <<< "$status" >/dev/null || break
-      jq -r '[.[] | select(.state == "queued" or .state == "downloading")] |
-             "  \(map(.done) | add // 0 | . / 1e9 | floor) of \(map(.total) | add // 0 | . / 1e9 | floor)+ GB, \(length) files to go"' <<< "$status"
-      sleep 15
-    done
-    jq -e 'any(.[]; .state == "error")' <<< "$status" >/dev/null &&
-      die "$(jq -r '.[] | select(.state == "error") | "\(.name): \(.error)"' <<< "$status")"
-  fi
+  provision_project "$1" ""
   if (( $2 > 0 )); then
     ssh_cmd "cat > /root/idle-watchdog.sh; pkill -f '[i]dle-watchdog.sh'; setsid nohup bash /root/idle-watchdog.sh > /root/idle-watchdog.log 2>&1 < /dev/null &" \
       <<< "$(idle_watchdog "$2")"

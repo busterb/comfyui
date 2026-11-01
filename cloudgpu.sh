@@ -37,6 +37,8 @@ mkdir -p "$STATE" && chmod 700 "$STATE"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 say() { printf '\n== %s\n' "$*"; }
+# shellcheck source=lib/cloud.sh
+. "$PROJECT_DIR/lib/cloud.sh"
 
 api_key() {
   if [[ -n ${CLOUDGPU_API_KEY:-} ]]; then echo "$CLOUDGPU_API_KEY"
@@ -71,11 +73,6 @@ api() {  # METHOD PATH [JSON body]; the key goes in a header file, not on the co
 instance_id() { [[ -s $STATE/instance_id ]] && cat "$STATE/instance_id"; }
 public() { jq 'del(.ssh)'; }  # instance JSON without the login
 
-ssh_cmd() { ssh -F "$STATE/ssh_config" "$HOST_ALIAS" "$@"; }
-ssh_ready() {  # wait for a working (shared) connection, which later ssh_cmd calls then reuse
-  for _ in $(seq 1 10); do ssh_cmd -o BatchMode=yes -o ConnectTimeout=20 true 2>/dev/null && return; sleep 10; done
-  die "can't connect to the instance over SSH"
-}
 
 write_ssh_config() {  # HOST PORT USER
   cat > "$STATE/ssh_config" <<EOF
@@ -91,7 +88,7 @@ Host $HOST_ALIAS
   ServerAliveInterval 30
   # One connection for everything: the provider's SSH entry point sometimes drops new connections
   ControlMaster auto
-  ControlPath $STATE/cm-%C
+  ControlPath ${XDG_RUNTIME_DIR:-/tmp}/comfyui-ssh-%C
   ControlPersist 10m
 EOF
 }
@@ -115,53 +112,9 @@ install_key() {  # log in once with the password, add a key made for this instan
   die "can't log in to the instance: $(tail -1 "$STATE/ssh.err")"
 }
 
-workflow_models() {  # NAME... -> JSON array of {name, url, directory} from the matching workflows
-  local files=() name f
-  for name in "$@"; do
-    local found=0
-    for f in "$PROJECT_DIR"/workflows/*.json; do
-      [[ $(basename "$f") == *"$name"* ]] && files+=("$f") found=1
-    done
-    [[ $found == 1 ]] || die "no workflow matches \"$name\" in workflows/"
-  done
-  jq -s '[.[] | .. | objects | select(has("models")) | .models[]? | select(type == "object" and .url and .name and .directory)
-          | {name, url, directory}] | unique_by(.directory + "/" + .name)' "${files[@]}"
-}
-
 provision() {  # MODELS_JSON
-  local commit; commit="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
-  git -C "$PROJECT_DIR" branch -r --contains "$commit" 2>/dev/null | grep -q . ||
-    echo "warning: $commit isn't pushed; the instance runs the newest pushed commit instead"
-  say "Installing this project on the instance (PyTorch and ComfyUI: a few minutes)"
-  ssh_cmd "bash -s" <<EOF
-set -euo pipefail
-command -v git >/dev/null && command -v curl >/dev/null || { apt-get update -qq && apt-get install -y -qq git curl > /dev/null 2>&1; }
-[[ -d $REMOTE_DIR/.git ]] || git clone -q "$REPO_URL" $REMOTE_DIR
-cd $REMOTE_DIR
-git fetch -q origin && { git checkout -q "$commit" 2>/dev/null || git checkout -q origin/main; }
-./setup.sh --no-service > setup.log 2>&1 || { tail -30 setup.log; exit 1; }
-grep -E '^torch .* OK on' setup.log || true
-pgrep -f "[m]ain.py --listen 127.0.0.1" >/dev/null || setsid nohup ./run.sh > comfyui.log 2>&1 < /dev/null &
-for _ in \$(seq 1 120); do curl -s -o /dev/null http://127.0.0.1:8188/ && exit 0; sleep 2; done
-tail -30 comfyui.log; exit 1
-EOF
-  say "Downloading $(jq length <<< "$1") models onto the instance"
-  jq -r '.[] | "  \(.directory)/\(.name)"' <<< "$1"
-  ssh_cmd "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:8188/server_models/download" \
-    <<< "$(jq -c '{models: .}' <<< "$1")" > "$STATE/downloads.json"
-  jq -e 'map(select(.state == "error")) | length == 0' "$STATE/downloads.json" >/dev/null ||
-    die "$(jq -r '.[] | select(.state == "error") | "\(.name): \(.error)"' "$STATE/downloads.json")"
-  local status
-  while :; do
-    status="$(ssh_cmd curl -sS http://127.0.0.1:8188/server_models/status)"
-    jq -r '[.[] | select(.state == "queued" or .state == "downloading")] |
-           "  \(map(.done) | add // 0 | . / 1e9 | floor) GB done, \(length) files to go"' <<< "$status"
-    jq -e 'any(.[]; .state == "queued" or .state == "downloading")' <<< "$status" >/dev/null || break
-    sleep 15
-  done
-  jq -e 'any(.[]; .state == "error")' <<< "$status" >/dev/null &&
-    die "$(jq -r '.[] | select(.state == "error") | "\(.name): \(.error)"' <<< "$status")"
-  return 0
+  provision_project "$1" \
+    'command -v git >/dev/null && command -v curl >/dev/null || { apt-get update -qq && apt-get install -y -qq git curl > /dev/null 2>&1; }'
 }
 
 cmd_up() {
