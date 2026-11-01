@@ -45,20 +45,34 @@ api() {  # METHOD PATH [JSON body]; the key goes in a header file, not on the co
   local key hdr; key="$(api_key)"
   hdr="$(mktemp "$STATE/.hdr.XXXXXX")"
   printf 'Authorization: Bearer %s\n' "$key" > "$hdr"
-  local out code
-  out="$(curl -sS -w '\n%{http_code}' -X "$1" -H "@$hdr" -H 'Content-Type: application/json' \
-    ${3:+--data "$3"} "$API$2")" || { rm -f "$hdr"; die "can't reach $API"; }
+  # The API sometimes stalls: time requests out, and retry the ones that are safe to repeat (not a create)
+  local out code attempts=4 i
+  [[ $1 == POST ]] && attempts=1
+  for (( i = 1; i <= attempts; i++ )); do
+    code=000
+    if out="$(curl -sS --connect-timeout 15 --max-time 60 -w '\n%{http_code}' -X "$1" -H "@$hdr" \
+        -H 'Content-Type: application/json' ${3:+--data "$3"} "$API$2" 2>&1)"; then
+      code="${out##*$'\n'}" out="${out%$'\n'*}"
+      [[ $code == 5* ]] || break
+    fi
+    (( i < attempts )) && { echo "  (CloudGPU API: ${code/#000/no answer}, retrying)" >&2; sleep $(( i * 5 )); }
+  done
   rm -f "$hdr"
-  code="${out##*$'\n'}" out="${out%$'\n'*}"
+  [[ $code != 000 ]] || die "CloudGPU API $1 $2: no answer ($out)"
   if [[ $code != 2* ]]; then
     die "CloudGPU API $1 $2: HTTP $code $(jq -r '.error.message? // .' <<< "$out" 2>/dev/null || echo "$out")"
   fi
   echo "$out"
 }
+
 instance_id() { [[ -s $STATE/instance_id ]] && cat "$STATE/instance_id"; }
 public() { jq 'del(.ssh)'; }  # instance JSON without the login
 
 ssh_cmd() { ssh -F "$STATE/ssh_config" "$HOST_ALIAS" "$@"; }
+ssh_ready() {  # wait for a working (shared) connection, which later ssh_cmd calls then reuse
+  for _ in $(seq 1 10); do ssh_cmd -o BatchMode=yes -o ConnectTimeout=20 true 2>/dev/null && return; sleep 10; done
+  die "can't connect to the instance over SSH"
+}
 
 write_ssh_config() {  # HOST PORT USER
   cat > "$STATE/ssh_config" <<EOF
@@ -72,7 +86,10 @@ Host $HOST_ALIAS
   UserKnownHostsFile $STATE/known_hosts
   StrictHostKeyChecking accept-new
   ServerAliveInterval 30
-  ControlMaster no
+  # One connection for everything: the provider's SSH entry point sometimes drops new connections
+  ControlMaster auto
+  ControlPath $STATE/cm-%C
+  ControlPersist 10m
 EOF
 }
 
@@ -159,15 +176,20 @@ cmd_up() {
     shift
   done
   (( ${#workflows[@]} )) || workflows=("People Edit Turbo" "People Edit 8GB")
-  [[ -z $(instance_id) ]] || die "instance $(instance_id) is already rented (./cloud.sh status, or ./cloud.sh down)"
   local models; models="$(workflow_models "${workflows[@]}")"
+  if [[ -n $(instance_id) ]]; then  # set up an instance rented before (a run that was interrupted, say)
+    local id; id="$(instance_id)"
+    echo "continuing with instance $id, rented before ($(api GET "/instances/$id" | jq -r .status)); ./cloud.sh down to drop it"
+    start_instance "$id" "$models"
+    return
+  fi
 
   local offer account
   offer="$(api GET /offers | jq --arg g "$gpu" '.data[] | select((.gpu_model | ascii_downcase) == ($g | ascii_downcase))')"
   [[ -n $offer ]] || die "no GPU \"$gpu\"; ./cloud.sh offers lists them"
   account="$(api GET /account)"
   echo "$(jq -r '"\(.gpu_model), \(.vram_gb // "?") GB: $\(.hourly_usd)/h, availability \(.available)"' <<< "$offer")"
-  echo "limits: \$$spend, ${hours}h, destroyed after ${idle} min idle; balance \$$(jq -r .balance_usd <<< "$account")"
+  echo "limits: \$$spend, ${hours}h, destroyed after ${idle} min idle; balance \$$(jq -r '.balance_usd | tonumber * 100 | round / 100' <<< "$account")"
   [[ $(jq -r .available <<< "$offer") != none ]] || die "$gpu is out of stock; pick another (./cloud.sh offers)"
   if [[ $yes == 0 ]]; then
     read -r -p "Rent it? [y/N] " answer
@@ -184,8 +206,12 @@ cmd_up() {
   rm -f "$STATE/known_hosts" "$STATE/ssh_config"
   echo "instance $id: $(jq -r .status <<< "$inst")"
 
+  start_instance "$id" "$models"
+}
+
+start_instance() {  # ID MODELS_JSON: wait for it to run, log in, provision
+  local id="$1" inst status
   say "Waiting for the instance to start"
-  local status
   for _ in $(seq 1 120); do
     inst="$(api GET "/instances/$id")" status="$(jq -r .status <<< "$inst")"
     [[ $status == running ]] && [[ $(jq -r '.ssh.host // empty' <<< "$inst") ]] && break
@@ -193,9 +219,12 @@ cmd_up() {
     sleep 10
   done
   [[ $status == running ]] || die "instance $id isn't running after 20 minutes (./cloud.sh down)"
-  (umask 077; jq -r .ssh.password <<< "$inst" > "$STATE/password")
-  write_ssh_config "$(jq -r .ssh.host <<< "$inst")" "$(jq -r .ssh.port <<< "$inst")" "$(jq -r '.ssh.user // "root"' <<< "$inst")"
-  install_key
+  if [[ ! -s $STATE/ssh_config ]] || ! ssh_cmd -o BatchMode=yes -o ConnectTimeout=15 true 2>/dev/null; then
+    (umask 077; jq -r .ssh.password <<< "$inst" > "$STATE/password")
+    write_ssh_config "$(jq -r .ssh.host <<< "$inst")" "$(jq -r .ssh.port <<< "$inst")" "$(jq -r '.ssh.user // "root"' <<< "$inst")"
+    install_key
+  fi
+  ssh_ready
   ssh_cmd 'nvidia-smi --query-gpu=name,memory.total --format=csv,noheader' || die "the instance has no working GPU (./cloud.sh down)"
   provision "$models"
   say "Ready: ./cloud.sh connect (and ./cloud.sh down when you're done)"
@@ -203,11 +232,13 @@ cmd_up() {
 
 cmd_connect() {
   [[ -n $(instance_id) && -s $STATE/ssh_config ]] || die "nothing rented (./cloud.sh up)"
+  ssh_ready
   SSH_CONFIG="$STATE/ssh_config" "$PROJECT_DIR/remote.sh" "$HOST_ALIAS" "$@"
 }
 
 cmd_down() {
   local id; id="$(instance_id)" || { echo "nothing rented"; return; }
+  [[ ! -s $STATE/ssh_config ]] || ssh -F "$STATE/ssh_config" -O exit "$HOST_ALIAS" 2>/dev/null || true
   api DELETE "/instances/$id" | public | jq -c '{id, status, gpu_model, minutes: (.running_minutes // .minutes), cost_usd: (.cost_usd // .cost)}'
   rm -f "$STATE/instance_id" "$STATE/password" "$STATE/ssh_config" "$STATE/known_hosts" "$STATE/downloads.json"
 }

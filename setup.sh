@@ -49,7 +49,8 @@ elif command -v nvidia-smi >/dev/null && nvidia-smi >/dev/null 2>&1; then
   IFS=, read -r GPU_NAME CC VRAM_MB < <(nvidia-smi --query-gpu=name,compute_cap,memory.total --format=csv,noheader,nounits | head -1)
   GPU_NAME="$(echo "$GPU_NAME" | xargs)" CC="$(echo "$CC" | xargs)" VRAM_MB="$(echo "$VRAM_MB" | xargs)"
   [[ $VRAM_MB =~ ^[0-9]+$ ]] || VRAM_MB=0  # unified-memory GPUs (e.g. GB10) report N/A
-  DRIVER_CUDA="$(nvidia-smi | grep -o 'CUDA Version: [0-9.]*' | awk '{print $3}')"
+  # "CUDA Version: 13.0"; drivers from 610 on say "CUDA UMD Version: 13.3"
+  DRIVER_CUDA="$(nvidia-smi | grep -oE 'CUDA (UMD )?Version: [0-9.]+' | awk '{print $NF}' | head -1 || true)"
   echo "gpu=$GPU_NAME compute_capability=$CC vram_mb=$VRAM_MB driver_cuda=$DRIVER_CUDA"
 else
   echo "no NVIDIA GPU detected"
