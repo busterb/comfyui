@@ -112,13 +112,15 @@ start ComfyUI. Put an API key in `.cache/runpod/api_key` first.
                                         # run remote.sh against it, delete the pod when you quit
 ./runpod.sh run --gpu "RTX 5090" --workflow "Wan 2.2 5B" --hours 1
 ./runpod.sh up; ./runpod.sh connect; ./runpod.sh down   # the same in steps
-./runpod.sh volume [delete]              # the network volume (billed monthly by size)
+./runpod.sh run --datacenter EUR-IS-1   # rent there instead (makes a volume there the first time)
+./runpod.sh volume [delete DC]           # the network volumes (billed monthly by size)
 ```
 
 It asks before renting. Each pod deletes itself after a time limit (default 3 hours, enforced on the pod from
 the start, so it holds if this machine goes offline; `./runpod.sh extend HOURS` pushes it back, and `connect`
 warns 10 and 2 minutes before) and after 30 minutes without jobs or a connected client. A volume lives in one
-data center, so pods can only be rented where it is. Your images pass through the pod's memory while jobs run;
+data center and pods can only use one in their own, so `runpod.sh` keeps one volume per data center you rent
+in and picks, of those, the one with the GPU in stock. Your images pass through the pod's memory while jobs run;
 nothing of yours is written to the volume.
 
 `cloudgpu.sh` does the same on [CloudGPU](https://cloudgpu.app), which is cheaper per hour but has no persistent

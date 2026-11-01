@@ -9,7 +9,7 @@
 #   ./runpod.sh extend HOURS      push the pod's time limit back
 #   ./runpod.sh offers            GPUs in stock in the volume's data center, then elsewhere
 #   ./runpod.sh status | ssh [command]
-#   ./runpod.sh volume [delete]   the network volume: show it, or delete it with everything on it
+#   ./runpod.sh volume [delete DC] the network volumes: list them, or delete one with everything on it
 #
 # Options for up/run:
 #   --gpu NAME          GPU as `./runpod.sh offers` lists it (default "RTX 4090")
@@ -17,9 +17,10 @@
 #                       default "People Edit Turbo")
 #   --hours H           delete the pod after this long (default 3; ./runpod.sh extend adds more)
 #   --idle MINUTES      delete the pod after this long without jobs or a connected client (default 30, 0 = off)
-#   --datacenter ID     where to create the network volume (first run only; default: the one with the most of
-#                       the GPU in stock, US first)
-#   --volume-gb GB      size of the network volume (first run only; default 75)
+#   --datacenter ID     where to rent; creates a network volume there if there is none (default: of the data
+#                       centers with a volume, the one with the most of the GPU in stock; with no volume yet,
+#                       any such data center, US first)
+#   --volume-gb GB      size of a new network volume (default 75)
 #   --yes               don't ask before renting
 #
 # This project, its venv and the models live on a RunPod network volume (/workspace), which outlives the pods:
@@ -39,7 +40,7 @@ STATE="$PROJECT_DIR/.cache/runpod"
 REST="https://rest.runpod.io/v1"
 GRAPHQL="https://api.runpod.io/graphql"
 IMAGE="runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04"  # for its sshd setup; setup.sh brings its own PyTorch
-VOLUME_NAME="comfyui"
+VOLUME_NAME="comfyui"  # and comfyui-<data center> for more volumes
 HOST_ALIAS=runpod
 REPO_URL="https://github.com/busterb/comfyui.git"
 REMOTE_DIR=/workspace/comfyui
@@ -97,16 +98,21 @@ check_pod() {  # forget a pod that is gone (it deletes itself at its limits); tr
   forget_pod
   return 1
 }
-volume() {  # the network volume's JSON, or nothing
-  rest GET /networkvolumes | jq --arg n "$VOLUME_NAME" 'map(select(.name == $n)) | first // empty'
+volumes() {  # this project's network volumes (at most one per data center) as a JSON array
+  rest GET /networkvolumes | jq --arg n "$VOLUME_NAME" 'map(select(.name == $n or (.name | startswith($n + "-"))))'
+}
+availability() {  # GPU_ID -> JSON {data center: stock} where it is in stock
+  graphql '{ dataCenters { id listed gpuAvailability { gpuTypeId stockStatus } } }' | jq --arg g "$1" '
+    [.dataCenters[] | select(.listed != false) | {id, s: ([.gpuAvailability[]? | select(.gpuTypeId == $g) | .stockStatus][0])}
+     | select(.s != null)] | map({(.id): .s}) | add // {}'
+}
+best_dc() {  # AVAILABILITY_JSON [DATA CENTER...] -> the one with the most stock (US first on ties), or nothing
+  local avail="$1"; shift
+  jq -rn --argjson a "$avail" --args '($ARGS.positional | if length > 0 then . else ($a | keys) end)
+    | map(select($a[.] != null)) | sort_by([{"High": 0, "Medium": 1, "Low": 2}[$a[.]] // 3, (startswith("US") | not)]) | first // empty' "$@"
 }
 gpu_types() {
   graphql '{ gpuTypes { id displayName memoryInGb securePrice secureCloud } }' | jq '.gpuTypes'
-}
-stock() {  # DATACENTER GPU_ID -> High/Medium/Low/none
-  graphql '{ dataCenters { id gpuAvailability { gpuTypeId stockStatus } } }' |
-    jq -r --arg d "$1" --arg g "$2" '.dataCenters[] | select(.id == $d) | .gpuAvailability[]? | select(.gpuTypeId == $g) | .stockStatus // empty' |
-    head -1 | grep . || echo none
 }
 
 write_ssh_config() {  # HOST PORT
@@ -199,32 +205,42 @@ cmd_up() {
   type="$(gpu_types | jq --arg g "$gpu" 'map(select((.displayName | ascii_downcase) == ($g | ascii_downcase) or .id == $g)) | first // empty')"
   [[ -n $type ]] || die "no GPU \"$gpu\"; ./runpod.sh offers lists them"
   gpu_id="$(jq -r .id <<< "$type")"
-  vol="$(volume)"
-  if [[ -n $vol ]]; then
-    dc="$(jq -r .dataCenterId <<< "$vol")"
-  elif [[ -z $dc ]]; then  # a data center with the GPU in stock, preferring plenty
-    dc="$(graphql '{ dataCenters { id listed gpuAvailability { gpuTypeId stockStatus } } }' | jq -r --arg g "$gpu_id" '
-      [.dataCenters[] | select(.listed != false) | {id, s: ([.gpuAvailability[]? | select(.gpuTypeId == $g) | .stockStatus][0])}
-       | select(.s == "High" or .s == "Medium" or .s == "Low")]
-      | sort_by([{"High": 0, "Medium": 1, "Low": 2}[.s], (.id | startswith("US") | not)]) | first.id // empty')"
-    [[ -n $dc ]] || die "no data center has a $gpu in stock right now; try another GPU (./runpod.sh offers)"
+  # The data center: --datacenter; else the one of our volumes' data centers with the most of the GPU in
+  # stock; else (no volume yet) any with the most. Pods can only use a volume in their own data center.
+  local vols avail where
+  vols="$(volumes)" avail="$(availability "$gpu_id")"
+  where="$(jq -r 'keys | join(", ")' <<< "$avail")"
+  if [[ -z $dc ]]; then
+    local vol_dcs; mapfile -t vol_dcs < <(jq -r '.[].dataCenterId' <<< "$vols")
+    if (( ${#vol_dcs[@]} )); then
+      dc="$(best_dc "$avail" "${vol_dcs[@]}")"
+      [[ -n $dc ]] || die "no $gpu in stock where the volumes are (${vol_dcs[*]}); in stock in: ${where:-nowhere right now}.
+  Use --datacenter to make a volume in one of those, or try another GPU (./runpod.sh offers)"
+    else
+      dc="$(best_dc "$avail")"
+      [[ -n $dc ]] || die "no data center has a $gpu in stock right now; try another GPU (./runpod.sh offers)"
+    fi
   fi
-  local price stock_now; price="$(jq -r .securePrice <<< "$type")" stock_now="$(stock "$dc" "$gpu_id")"
+  vol="$(jq --arg d "$dc" 'map(select(.dataCenterId == $d)) | first // empty' <<< "$vols")"
+  local price stock_now; price="$(jq -r .securePrice <<< "$type")" stock_now="$(jq -r --arg d "$dc" '.[$d] // "none"' <<< "$avail")"
   echo "$(jq -r '"\(.displayName), \(.memoryInGb) GB"' <<< "$type"): \$$price/h in $dc (stock: $stock_now)"
   echo "limits: deleted after ${hours}h (at most \$$(jq -n "$price * $hours * 100 | ceil / 100")) or ${idle} min without jobs or a client"
   if [[ -n $vol ]]; then
-    echo "network volume: $(jq -r '"\(.id), \(.size) GB"' <<< "$vol") in $dc"
+    echo "network volume: $(jq -r '"\(.name) (\(.id)), \(.size) GB"' <<< "$vol") in $dc"
   else
-    echo "network volume: none yet; creates a ${volume_gb} GB one in $dc (billed monthly by size until ./runpod.sh volume delete)"
+    echo "network volume: none in $dc yet; creates a ${volume_gb} GB one there (billed monthly by size until ./runpod.sh volume delete $dc)"
+    echo "  it starts empty: this pod installs the project and downloads the models (about 15 minutes)"
   fi
-  [[ $stock_now != none ]] || die "no $gpu in stock in $dc right now; try another GPU (./runpod.sh offers) or later"
+  [[ $stock_now != none ]] || die "no $gpu in stock in $dc right now; in stock in: ${where:-nowhere right now}"
   if [[ $yes == 0 ]]; then
     read -r -p "Rent it? [y/N] " answer
     [[ $answer == [yY]* ]] || exit 1
   fi
 
   if [[ -z $vol ]]; then
-    vol="$(rest POST /networkvolumes "$(jq -nc --arg n "$VOLUME_NAME" --argjson s "$volume_gb" --arg d "$dc" '{name: $n, size: $s, dataCenterId: $d}')")"
+    local name="$VOLUME_NAME-$dc"
+    [[ $(jq length <<< "$vols") == 0 ]] && name="$VOLUME_NAME"  # the first one
+    vol="$(rest POST /networkvolumes "$(jq -nc --arg n "$name" --argjson s "$volume_gb" --arg d "$dc" '{name: $n, size: $s, dataCenterId: $d}')")"
     echo "created network volume $(jq -r .id <<< "$vol")"
   fi
   [[ -s $STATE/id_ed25519 ]] || ssh-keygen -q -t ed25519 -N '' -C "runpod.sh" -f "$STATE/id_ed25519"
@@ -319,35 +335,39 @@ cmd_run() {  # delete the pod however this ends, including a failed setup
   cmd_connect || true
 }
 
-cmd_offers() {  # GPUs in stock in the volume's data center (pods can only run there), then elsewhere
-  local vol dc data
-  vol="$(volume)" dc="$(jq -r '.dataCenterId // empty' <<< "${vol:-{\}}")"
+cmd_offers() {  # GPUs in stock where our volumes are (pods can only run there), then elsewhere
+  local vol_dcs data rows dc
+  mapfile -t vol_dcs < <(volumes | jq -r '.[].dataCenterId')
   data="$(graphql '{ gpuTypes { id displayName memoryInGb securePrice } dataCenters { id listed gpuAvailability { gpuTypeId stockStatus } } }')"
   # one row per GPU type and data center with stock: displayName, GB, price, data center, stock
-  local rows; rows="$(jq -r '(.gpuTypes | map({(.id): .}) | add) as $t | .dataCenters[] | select(.listed) | .id as $d
+  rows="$(jq -r '(.gpuTypes | map({(.id): .}) | add) as $t | .dataCenters[] | select(.listed) | .id as $d
     | .gpuAvailability[]? | select(.stockStatus != null and $t[.gpuTypeId] != null) | $t[.gpuTypeId] as $g
     | [$g.displayName, $g.memoryInGb, $g.securePrice, $d, .stockStatus] | @tsv' <<< "$data" | sort -t $'\t' -k3,3n -k1,1)"
-  if [[ -n $dc ]]; then
-    echo "In $dc, where the network volume is (pods can only run there):"
+  for dc in ${vol_dcs[@]+"${vol_dcs[@]}"}; do
+    echo "In $dc, where a network volume is:"
     awk -F'\t' -v dc="$dc" '$4 == dc {printf "  %s\t%s GB\t$%s/h\tstock: %s\n", $1, $2, $3, $5}' <<< "$rows" | column -t -s $'\t'
     awk -F'\t' -v dc="$dc" '$4 == dc {n++} END {exit n > 0}' <<< "$rows" && echo "  (no GPUs in stock there right now)"
     echo
-    echo "Elsewhere (would need a volume there):"
+  done
+  if (( ${#vol_dcs[@]} )); then
+    echo "Elsewhere (./runpod.sh up --datacenter ID makes a volume there):"
   else
     echo "No network volume yet; the first ./runpod.sh up creates one in a data center with the GPU in stock."
     echo "GPUs in stock (Secure Cloud, which network volumes need), by data center:"
   fi
-  awk -F'\t' -v dc="$dc" '$4 != dc {k = $1 "\t" $2 " GB\t$" $3 "/h"; l[k] = (k in l ? l[k] ", " : "") $4 " (" $5 ")"; o[k] = ++n}
+  awk -F'\t' -v skip=" ${vol_dcs[*]-} " 'index(skip, " " $4 " ") == 0 {k = $1 "\t" $2 " GB\t$" $3 "/h"; l[k] = (k in l ? l[k] ", " : "") $4 " (" $5 ")"; if (!(k in o)) o[k] = ++n}
     END {for (k in o) print o[k] "\t" k "\t" l[k]}' <<< "$rows" | sort -n | cut -f2- | sed 's/^/  /' | column -t -s $'\t'
 }
 
-cmd_volume() {
-  local vol; vol="$(volume)"
-  [[ -n $vol ]] || { echo "no network volume named $VOLUME_NAME"; return; }
-  jq -c . <<< "$vol"
+cmd_volume() {  # [delete DATACENTER]
+  local vols; vols="$(volumes)"
+  [[ $(jq length <<< "$vols") != 0 ]] || { echo "no network volumes ($VOLUME_NAME, $VOLUME_NAME-*)"; return; }
+  jq -r '.[] | "\(.name)\t\(.id)\t\(.size) GB\t\(.dataCenterId)"' <<< "$vols" | column -t -s $'\t'
   [[ ${1:-} == delete ]] || return 0
-  [[ -z $(pod_id) ]] || die "delete the pod first (./runpod.sh down)"
-  read -r -p "Delete the volume and everything on it (models, venv)? [y/N] " answer
+  local vol; vol="$(jq --arg d "${2:-}" 'if length == 1 and $d == "" then .[0] else map(select(.dataCenterId == $d)) | first // empty end' <<< "$vols")"
+  [[ -n $vol ]] || die "which one? ./runpod.sh volume delete DATACENTER"
+  ! check_pod || die "delete the pod first (./runpod.sh down)"
+  read -r -p "Delete $(jq -r '"\(.name) in \(.dataCenterId)"' <<< "$vol") and everything on it (models, venv)? [y/N] " answer
   [[ $answer == [yY]* ]] || exit 1
   rest DELETE "/networkvolumes/$(jq -r .id <<< "$vol")" > /dev/null && echo "deleted"
 }
