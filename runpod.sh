@@ -6,6 +6,7 @@
 #   ./runpod.sh up [options]      rent and set up only; then ./runpod.sh connect, and ./runpod.sh down when done
 #   ./runpod.sh connect           remote.sh against the rented pod
 #   ./runpod.sh down              delete the pod (the network volume, with the models, stays)
+#   ./runpod.sh extend HOURS      push the pod's time limit back
 #   ./runpod.sh status | offers | ssh [command]
 #   ./runpod.sh volume [delete]   the network volume: show it, or delete it with everything on it
 #
@@ -13,8 +14,8 @@
 #   --gpu NAME          GPU as `./runpod.sh offers` lists it (default "RTX 4090")
 #   --workflow NAME     download the models of the workflows whose file name contains NAME (repeatable;
 #                       default "People Edit Turbo")
-#   --hours H           delete the pod after this long (default 3)
-#   --idle MINUTES      delete the pod after this long without jobs (default 30, 0 = off)
+#   --hours H           delete the pod after this long (default 3; ./runpod.sh extend adds more)
+#   --idle MINUTES      delete the pod after this long without jobs or a connected client (default 30, 0 = off)
 #   --datacenter ID     where to create the network volume (first run only; default: the one with the most of
 #                       the GPU in stock, US first)
 #   --volume-gb GB      size of the network volume (first run only; default 75)
@@ -71,6 +72,7 @@ http() {  # METHOD URL [JSON body]; the key goes in a header file, not on the co
     (( i < attempts )) && { echo "  (RunPod API: ${code/#000/no answer}, retrying)" >&2; sleep $(( i * 5 )); }
   done
   rm -f "$hdr"
+  [[ $code == 404 && -n ${HTTP_404_OK:-} ]] && return 0  # the caller handles "not found" (prints nothing)
   [[ $code != 000 ]] || die "RunPod API $1 ${2#https://}: no answer ($out)"
   if [[ $code != 2* ]]; then
     die "RunPod API $1 ${2#https://}: HTTP $code $(jq -r '(.error // .message // .)|tostring' <<< "$out" 2>/dev/null || echo "$out")"
@@ -85,6 +87,15 @@ graphql() {  # QUERY -> .data, or dies with the errors
 }
 
 pod_id() { [[ -s $STATE/pod_id ]] && cat "$STATE/pod_id"; }
+forget_pod() { rm -f "$STATE/pod_id" "$STATE/ssh_config" "$STATE/known_hosts" "$STATE/downloads.json"; }
+check_pod() {  # forget a pod that is gone (it deletes itself at its limits); true if one is left
+  [[ -n $(pod_id) ]] || return 1
+  local out; out="$(HTTP_404_OK=1 rest GET "/pods/$(pod_id)")"
+  [[ -n $out ]] && return 0
+  echo "pod $(pod_id) is gone (deleted at its time or idle limit)"
+  forget_pod
+  return 1
+}
 volume() {  # the network volume's JSON, or nothing
   rest GET /networkvolumes | jq --arg n "$VOLUME_NAME" 'map(select(.name == $n)) | first // empty'
 }
@@ -127,12 +138,24 @@ provision() {  # MODELS_JSON IDLE_MINUTES
 }
 idle_watchdog() {  # IDLE_MINUTES -> a script for the pod
   cat <<EOF
-# runpod.sh: delete this pod once it went $1 minutes without queued or running jobs or model downloads
+# runpod.sh: delete this pod once it went $1 minutes without queued or running jobs, model downloads or SSH
+# connections (remote.sh's tunnel)
 last=\$(date +%s)
 while sleep 60; do
   if python3 - <<'PY'; then last=\$(date +%s); fi
 import json, sys, urllib.request
 get = lambda p: json.load(urllib.request.urlopen("http://127.0.0.1:8188" + p, timeout=10))
+def ssh_connected():  # an established TCP connection on local port 22 (0016), from /proc/net/tcp{,6}
+    for f in ("/proc/net/tcp", "/proc/net/tcp6"):
+        try:
+            rows = [l.split() for l in open(f).readlines()[1:]]
+        except OSError:
+            continue
+        if any(r[1].endswith(":0016") and r[3] == "01" for r in rows):
+            return True
+    return False
+if ssh_connected():
+    sys.exit(0)
 try:
     q, d = get("/queue"), get("/server_models/status")
 except Exception:
@@ -165,7 +188,7 @@ cmd_up() {
   done
   (( ${#workflows[@]} )) || workflows=("People Edit Turbo")
   local models; models="$(workflow_models "${workflows[@]}")"
-  if [[ -n $(pod_id) ]]; then  # set up a pod rented before (a run that was interrupted, say)
+  if check_pod; then  # set up a pod rented before (a run that was interrupted, say)
     echo "continuing with pod $(pod_id), rented before; ./runpod.sh down to drop it"
     start_pod "$models" "$idle"
     return
@@ -187,7 +210,7 @@ cmd_up() {
   fi
   local price stock_now; price="$(jq -r .securePrice <<< "$type")" stock_now="$(stock "$dc" "$gpu_id")"
   echo "$(jq -r '"\(.displayName), \(.memoryInGb) GB"' <<< "$type"): \$$price/h in $dc (stock: $stock_now)"
-  echo "limits: deleted after ${hours}h (at most \$$(jq -n "$price * $hours * 100 | ceil / 100")) or ${idle} min without jobs"
+  echo "limits: deleted after ${hours}h (at most \$$(jq -n "$price * $hours * 100 | ceil / 100")) or ${idle} min without jobs or a client"
   if [[ -n $vol ]]; then
     echo "network volume: $(jq -r '"\(.id), \(.size) GB"' <<< "$vol") in $dc"
   else
@@ -204,11 +227,15 @@ cmd_up() {
     echo "created network volume $(jq -r .id <<< "$vol")"
   fi
   [[ -s $STATE/id_ed25519 ]] || ssh-keygen -q -t ed25519 -N '' -C "runpod.sh" -f "$STATE/id_ed25519"
-  local deadline=$(( $(jq -n "$hours * 3600 | ceil") ))
+  # Time limit: a deadline in /root/deadline (./runpod.sh extend moves it), checked every 30 s from the start
+  local secs guard; secs="$(jq -n "$hours * 3600 | ceil")"
+  guard="echo \$(( \$(date +%s) + $secs )) > /root/deadline; (while :; do d=\$(cat /root/deadline 2>/dev/null); \
+[[ \$d =~ ^[0-9]+\$ ]] || d=0; (( \$(date +%s) < d )) || break; sleep 30; done; \
+echo \"\$(date): time limit, deleting this pod\"; $SELF_DELETE) > /root/time-limit.log 2>&1 & exec /start.sh"
   local body pod
   body="$(jq -nc --arg img "$IMAGE" --arg g "$gpu_id" --arg v "$(jq -r .id <<< "$vol")" --arg d "$dc" \
     --arg key "$(cat "$STATE/id_ed25519.pub")" \
-    --arg start "(sleep $deadline; echo \"\$(date): time limit, deleting this pod\"; $SELF_DELETE) > /root/time-limit.log 2>&1 & exec /start.sh" \
+    --arg start "$guard" \
     '{name: "comfyui-remote", imageName: $img, gpuTypeIds: [$g], gpuCount: 1, cloudType: "SECURE",
       networkVolumeId: $v, volumeMountPath: "/workspace", dataCenterIds: [$d], containerDiskInGb: 20,
       ports: ["22/tcp"], env: {PUBLIC_KEY: $key}, dockerStartCmd: ["bash", "-c", $start]}')"
@@ -238,18 +265,51 @@ start_pod() {  # MODELS_JSON IDLE_MINUTES: wait for SSH, provision
   say "Ready: ./runpod.sh connect (and ./runpod.sh down when you're done)"
 }
 
+deadline() { ssh_cmd -o BatchMode=yes cat /root/deadline 2>/dev/null; }
+deadline_info() {  # DEADLINE -> "deletes itself at 10:15 (in 35 min)"
+  jq -rn --argjson t "$1" --argjson now "$(date +%s)" \
+    '"the pod deletes itself at \($t | strflocaltime("%H:%M")) (in \(($t - $now) / 60 | floor) min) unless extended: ./runpod.sh extend HOURS"'
+}
+warn_deadline() {  # while connected: warn 10 and 2 minutes before the time limit
+  local warned=999 d left
+  while sleep 60; do
+    d="$(deadline)" || continue
+    left=$(( (d - $(date +%s)) / 60 ))
+    if (( left <= 10 && warned > 10 )) || (( left <= 2 && warned > 2 )); then
+      printf '\n*** runpod.sh: %s ***\n\n' "$(deadline_info "$d")" >&2
+      warned=$left
+    fi
+    (( left > 10 )) && warned=999  # extended
+  done
+}
+
 cmd_connect() {
-  [[ -n $(pod_id) && -s $STATE/ssh_config ]] || die "nothing rented (./runpod.sh up)"
+  check_pod && [[ -s $STATE/ssh_config ]] || die "nothing rented (./runpod.sh up)"
   ssh_ready
-  SSH_CONFIG="$STATE/ssh_config" "$PROJECT_DIR/remote.sh" "$HOST_ALIAS" "$@"
+  local d; d="$(deadline)" && echo "$(deadline_info "$d")"
+  warn_deadline &
+  local warner=$! rc=0
+  SSH_CONFIG="$STATE/ssh_config" "$PROJECT_DIR/remote.sh" "$HOST_ALIAS" "$@" || rc=$?
+  kill $warner 2>/dev/null || true
+  return $rc
+}
+
+cmd_extend() {  # HOURS: move the time limit, counted from the current one (or from now, if that has passed)
+  [[ ${1:-} =~ ^[0-9]+([.][0-9]+)?$ ]] || die "usage: ./runpod.sh extend HOURS"
+  check_pod || die "no pod rented"
+  local secs d; secs="$(jq -n "$1 * 3600 | ceil")"
+  d="$(ssh_cmd "d=\$(cat /root/deadline); now=\$(date +%s); (( d > now )) || d=\$now; echo \$(( d + $secs )) > /root/deadline.new && mv /root/deadline.new /root/deadline && cat /root/deadline")"
+  deadline_info "$d"
+  echo "(at \$$(rest GET "/pods/$(pod_id)" | jq -r .costPerHr)/h)"
 }
 
 cmd_down() {
-  local id; id="$(pod_id)" || { echo "no pod rented"; return; }
+  check_pod || { echo "no pod rented"; return; }
+  local id; id="$(pod_id)"
   [[ ! -s $STATE/ssh_config ]] || ssh -F "$STATE/ssh_config" -O exit "$HOST_ALIAS" 2>/dev/null || true
-  rest DELETE "/pods/$id" > /dev/null
+  HTTP_404_OK=1 rest DELETE "/pods/$id" > /dev/null
   echo "deleted pod $id (the network volume stays; ./runpod.sh volume)"
-  rm -f "$STATE/pod_id" "$STATE/ssh_config" "$STATE/known_hosts" "$STATE/downloads.json"
+  forget_pod
 }
 
 cmd_run() {  # delete the pod however this ends, including a failed setup
@@ -273,8 +333,9 @@ case "${1:-}" in
   up) shift; cmd_up "$@" ;;
   run) shift; cmd_run "$@" ;;
   connect) shift; cmd_connect "$@" ;;
+  extend) shift; cmd_extend "$@" ;;
   down) cmd_down ;;
-  status) id="$(pod_id)" || die "no pod rented"
+  status) check_pod || die "no pod rented"; id="$(pod_id)"
           rest GET "/pods/$id" | jq '{id, desiredStatus, costPerHr, gpu: .gpu.displayName, publicIp, portMappings, lastStartedAt}' ;;
   offers) graphql '{ gpuTypes { displayName memoryInGb lowestPrice(input: {gpuCount: 1, secureCloud: true}) { stockStatus uninterruptablePrice } } }' |
             jq -r '.gpuTypes | map(select(.lowestPrice.stockStatus != null)) | sort_by(.lowestPrice.uninterruptablePrice)[] |

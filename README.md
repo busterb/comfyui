@@ -116,7 +116,8 @@ start ComfyUI. Put an API key in `.cache/runpod/api_key` first.
 ```
 
 It asks before renting. Each pod deletes itself after a time limit (default 3 hours, enforced on the pod from
-the start, so it holds if this machine goes offline) and after 30 minutes without jobs. A volume lives in one
+the start, so it holds if this machine goes offline; `./runpod.sh extend HOURS` pushes it back, and `connect`
+warns 10 and 2 minutes before) and after 30 minutes without jobs or a connected client. A volume lives in one
 data center, so pods can only be rented where it is. Your images pass through the pod's memory while jobs run;
 nothing of yours is written to the volume.
 
