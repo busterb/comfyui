@@ -25,7 +25,7 @@
 #                       centers with a volume, the one with the most of the GPU in stock; with no volume yet,
 #                       any such data center, US first)
 #   --gpus-per-pod N    GPUs in each pod (default 1); each runs its own ComfyUI, so a pod takes N jobs at once
-#   --wait MINUTES      if the GPUs aren't in stock, keep checking (every 20 s) for up to this long and rent them
+#   --wait MINUTES      if the GPUs aren't in stock, keep checking (every 3 s) for up to this long and rent them
 #                       the moment they are; you confirm the quote first (default 0: don't wait)
 #   --volume-gb GB      size of a new network volume (default 75)
 #   --yes               don't ask before renting
@@ -82,7 +82,7 @@ http() {  # METHOD URL [JSON body]; the key goes in a header file, not on the co
     if out="$(curl -sS --connect-timeout 15 --max-time 60 -w '\n%{http_code}' -X "$1" -H "@$hdr" \
         -H 'Content-Type: application/json' ${3:+--data "$3"} "$2" 2>&1)"; then
       code="${out##*$'\n'}" out="${out%$'\n'*}"
-      [[ $code == 5* ]] || break
+      [[ $code == 5* || $code == 429 ]] || break  # 429: too many requests
     fi
     (( i < attempts )) && { echo "  (RunPod API: ${code/#000/no answer}, retrying)" >&2; sleep $(( i * 5 )); }
   done
@@ -378,7 +378,7 @@ echo \"\$(date): time limit, deleting this pod\"; $SELF_DELETE) > /root/time-lim
       echo "  $(date +%H:%M) waiting for: $(for i in "${todo[@]}"; do printf '%s ' "${gpus[$i]}"; done)($(( (until - $(date +%s)) / 60 )) min left)"
       next_note=$(( $(date +%s) + 300 ))
     fi
-    sleep 20
+    sleep 3
     refresh_stock
     dc="$(pick_dc)"
   done

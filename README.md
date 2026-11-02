@@ -128,7 +128,7 @@ in `.cache/runpod/api_key`.
 ./runpod.sh run --datacenter EUR-IS-1     # rent in a particular data center
 ./runpod.sh run --gpu "RTX 4090" --gpu "L4"   # two pods: jobs run on both at once
 ./runpod.sh run --gpus-per-pod 2          # one pod with two GPUs, one ComfyUI on each
-./runpod.sh run --wait 30                 # not in stock? keep checking for 30 min, rent the moment it is
+./runpod.sh run --wait 30                 # not in stock? keep checking (every 3 s) for 30 min, rent the moment it is
 ./runpod.sh run --dry-run --wait 30       # the same without renting: shows when it would have
 ./runpod.sh run --with gb10               # use your own gb10 too, next to the pod
 ./runpod.sh up; ./runpod.sh connect; ./runpod.sh down   # the same as run, in steps
