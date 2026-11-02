@@ -126,6 +126,7 @@ in `.cache/runpod/api_key`.
                                           # remote.sh against it, and delete the pod when you quit
 ./runpod.sh run --gpu "RTX 5090" --workflow "Wan 2.2 5B" --hours 1
 ./runpod.sh run --datacenter EUR-IS-1     # rent in a particular data center
+./runpod.sh run --gpu "RTX 4090" --gpu "L4"   # two pods: jobs run on both at once
 ./runpod.sh run --with gb10               # use your own gb10 too, next to the pod
 ./runpod.sh up; ./runpod.sh connect; ./runpod.sh down   # the same as run, in steps
 ./runpod.sh extend 1                      # one more hour before the pod deletes itself
@@ -138,7 +139,11 @@ in a few minutes. A volume is billed monthly by size.
 
 A volume belongs to one data center, and pods can only use the volume in their own data center. `runpod.sh`
 keeps one volume per data center you rent in. Without `--datacenter`, it rents where one of your volumes is and
-the GPU is in stock. The first time, it picks a data center with the GPU in stock.
+the GPUs are in stock. The first time, it picks a data center with them in stock.
+
+Several pods share their data center's volume. They are set up one after another, so only the first one
+installs and downloads, and each keeps its ComfyUI database on its own disk. RunPod reports stock per GPU type,
+so asking for two of the same type can still get only one; the run then goes on with the pods it got.
 
 `runpod.sh` asks before renting. A pod deletes itself:
 
