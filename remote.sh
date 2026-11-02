@@ -5,10 +5,11 @@
 #   ./remote.sh HOST                  e.g. ./remote.sh promaxgb10-4b16
 #   ./remote.sh HOST HOST...          several compute machines: as many jobs run at once, each on the first
 #                                     free machine in this order (put the fastest first)
+#   ./remote.sh HOST HOST:8189        HOST:PORT: a ComfyUI on another port there (one per GPU, say)
 #   ./remote.sh HOST -- ARGS          ARGS go to run.sh (so does anything from the first argument starting with -)
 #   COMFYUI_PORT=8190 ./remote.sh HOST   local port (default 8188, or the first free one from 8190 if that's taken,
 #                                     e.g. by this machine's own ComfyUI)
-#   REMOTE_PORT=8188                  ComfyUI's port on the hosts (it only listens on their localhost)
+#   REMOTE_PORT=8188                  ComfyUI's port on hosts given without one (it only listens on their localhost)
 #   SSH_CONFIG=FILE                   ssh config to use instead of ~/.ssh/config
 #
 # Each HOST needs this project set up (setup.sh) with ComfyUI running, and the same models as the first one.
@@ -21,11 +22,13 @@ set -euo pipefail
 {
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HOSTS=()
+HOSTS=()  # as given: HOST or HOST:PORT
 while (( $# )) && [[ $1 != -* ]]; do HOSTS+=("$1"); shift; done
 [[ ${1:-} == -- ]] && shift
 (( ${#HOSTS[@]} )) || { echo "usage: ./remote.sh HOST [HOST...] [-- run.sh arguments]" >&2; exit 2; }
 REMOTE_PORT="${REMOTE_PORT:-8188}"
+ssh_host() { echo "${1%%:*}"; }
+remote_port() { [[ $1 == *:* ]] && echo "${1##*:}" || echo "$REMOTE_PORT"; }
 SSH=(ssh)
 [[ -z ${SSH_CONFIG:-} ]] || SSH+=(-F "$SSH_CONFIG")  # an ssh config of its own (runpod.sh's rented GPU)
 
@@ -45,7 +48,7 @@ cleanup() {  # under set -e, so every step may fail quietly (the processes may b
   for i in "${!FORWARDS[@]}"; do
     kill "${TUNNELS[$i]}" 2>/dev/null || true
     for _ in 1 2 3 4 5; do  # confirm the port is closed; retry if the cancel didn't take yet
-      "${SSH[@]}" -O cancel -L "${FORWARDS[$i]}" "${HOSTS[$i]}" 2>/dev/null || true
+      "${SSH[@]}" -O cancel -L "${FORWARDS[$i]}" "$(ssh_host "${HOSTS[$i]}")" 2>/dev/null || true
       port_free "${FORWARDS[$i]%%:*}" && break
       sleep 1
     done
@@ -55,8 +58,8 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 for host in "${HOSTS[@]}"; do
   port="$(first_free $(seq 18188 18199))"
-  FORWARDS+=("$port:127.0.0.1:$REMOTE_PORT")
-  "${SSH[@]}" -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L "${FORWARDS[${#FORWARDS[@]}-1]}" "$host" &
+  FORWARDS+=("$port:127.0.0.1:$(remote_port "$host")")
+  "${SSH[@]}" -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L "${FORWARDS[${#FORWARDS[@]}-1]}" "$(ssh_host "$host")" &
   TUNNELS+=($!)
   # wait for this one before the next, so the next picks another free port
   for _ in $(seq 1 15); do port_free "$port" || break; kill -0 "${TUNNELS[${#TUNNELS[@]}-1]}" 2>/dev/null || break; sleep 1; done
@@ -64,12 +67,12 @@ done
 reachable() { curl -s --max-time 5 -o /dev/null "http://127.0.0.1:$1/"; }
 for i in "${!HOSTS[@]}"; do
   port="${FORWARDS[$i]%%:*}"
-  echo "connecting to ComfyUI on ${HOSTS[$i]}:$REMOTE_PORT..."
+  echo "connecting to ComfyUI on $(ssh_host "${HOSTS[$i]}"):$(remote_port "${HOSTS[$i]}")..."
   for _ in $(seq 1 15); do reachable "$port" && break; kill -0 "${TUNNELS[$i]}" 2>/dev/null || break; sleep 1; done
   if reachable "$port"; then
     URLS+=("http://127.0.0.1:$port")
   else
-    echo "ComfyUI on ${HOSTS[$i]}:$REMOTE_PORT is not reachable. Is it running there? (systemctl --user start comfyui, or ./run.sh)" >&2
+    echo "ComfyUI on $(ssh_host "${HOSTS[$i]}"):$(remote_port "${HOSTS[$i]}") is not reachable. Is it running there? (systemctl --user start comfyui, or ./run.sh)" >&2
   fi
 done
 (( ${#URLS[@]} )) || exit 1

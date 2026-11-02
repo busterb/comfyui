@@ -2,7 +2,8 @@
 # The including script sets PROJECT_DIR, STATE (with ssh_config in it), HOST_ALIAS, REPO_URL and REMOTE_DIR, and
 # defines die and say. DEADLINE_FILE (on the rented machine: when it deletes itself, in Unix seconds) and
 # DEADLINE_HINT (how to extend that) are optional; ComfyUI there reports them to the browser, which warns.
-# COMFYUI_ARGS (optional) are more arguments for run.sh there.
+# COMFYUI_ARGS (optional) are more arguments for run.sh there; $i in them is the instance number (see below).
+# INSTANCES (default 1): how many ComfyUI instances to run there, one per GPU, on ports 8188, 8189, ...
 
 ssh_cmd() { ssh -F "$STATE/ssh_config" "$HOST_ALIAS" "$@"; }
 ssh_ready() {  # wait for a working (shared) connection, which later ssh_cmd calls then reuse
@@ -86,14 +87,23 @@ set -euo pipefail
 cd $REMOTE_DIR
 ./setup.sh --no-service > setup.log 2>&1 || { tail -30 setup.log; exit 1; }
 grep -E '^torch .* OK on' setup.log || true
-pid=\$(pgrep -f "[m]ain.py --listen 127.0.0.1" | head -1 || true)
-if [[ -n \$pid ]] && ! tr '\\0' '\\n' < /proc/\$pid/environ | grep -qxF "REMOTE_COMPUTE_DEADLINE_FILE=${DEADLINE_FILE:-}"; then
-  kill \$pid; sleep 5; pid=  # started with other settings (by an older version of this script, say)
-fi
-# (an "a || b &" would background a subshell holding this SSH session's output open, so the session never ends)
-if [[ -z \$pid ]]; then $settings setsid nohup ./run.sh ${COMFYUI_ARGS:-} > /root/comfyui.log 2>&1 < /dev/null & fi
-for _ in \$(seq 1 150); do curl -s -o /dev/null http://127.0.0.1:8188/ && exit 0; sleep 2; done
-tail -30 /root/comfyui.log; exit 1
+n=${INSTANCES:-1}
+for i in \$(seq 0 \$(( n - 1 ))); do  # one ComfyUI per GPU; instance i on port 8188 + i, log /root/comfyui-i.log
+  port=\$(( 8188 + i ))
+  pid=\$(pgrep -f "[m]ain.py --listen 127.0.0.1 --port \$port " | head -1 || true)
+  if [[ -n \$pid ]] && ! tr '\\0' '\\n' < /proc/\$pid/environ | grep -qxF "REMOTE_COMPUTE_DEADLINE_FILE=${DEADLINE_FILE:-}"; then
+    kill \$pid; sleep 5; pid=  # started with other settings (by an older version of this script, say)
+  fi
+  gpu=; (( n == 1 )) || gpu="--cuda-device \$i"
+  # (an "a || b &" would background a subshell holding this SSH session's output open, so the session never ends)
+  if [[ -z \$pid ]]; then
+    COMFYUI_PORT=\$port $settings setsid nohup ./run.sh \$gpu ${COMFYUI_ARGS:-} > /root/comfyui-\$i.log 2>&1 < /dev/null &
+  fi
+done
+for i in \$(seq 0 \$(( n - 1 ))); do
+  for _ in \$(seq 1 150); do curl -s -o /dev/null http://127.0.0.1:\$(( 8188 + i ))/ && continue 2; sleep 2; done
+  tail -30 /root/comfyui-\$i.log; exit 1
+done
 EOF
 
   (( count )) || return 0
