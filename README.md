@@ -142,8 +142,12 @@ The project, its venv and the models live on a RunPod network volume, which outl
 on a volume installs everything and downloads the models, which takes about 15 minutes. Later pods are ready
 in a few minutes. A volume is billed monthly by size.
 
-The People Edit Turbo models take about 30 GB. The H3 video workflow needs 42 GB more, so grow the volume to
-110 GB before renting for it. H3 runs best on a 96 GB RTX PRO 6000:
+The volume needs room for the models of every workflow you rent for:
+
+- People Edit Turbo: about 30 GB.
+- H3 image to video: 42 GB. An RTX PRO 6000 (96 GB) holds all of it. An RTX 5090 (32 GB) works, more slowly.
+
+Use `./runpod.sh volume grow GB` to make room. For H3:
 
 ```sh
 ./runpod.sh run --gpu "RTX PRO 6000" --workflow "H3 image to video.json" --wait 30
