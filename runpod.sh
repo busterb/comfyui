@@ -10,7 +10,9 @@
 #   ./runpod.sh offers            GPUs in stock in the volume's data center, then elsewhere
 #   ./runpod.sh status
 #   ./runpod.sh ssh [POD] [command]   POD: runpod (the first pod, the default), runpod2, ...
-#   ./runpod.sh volume [delete DC] the network volumes: list them, or delete one with everything on it
+#   ./runpod.sh volume            list the network volumes
+#   ./runpod.sh volume grow GB [DC]   enlarge one to GB (it can't shrink again; billed by size)
+#   ./runpod.sh volume delete DC  delete one with everything on it
 #
 # Options for up/run:
 #   --gpu NAME          GPU as `./runpod.sh offers` lists it (default "RTX 4090"). Give it more than once to rent
@@ -509,13 +511,29 @@ cmd_offers() {  # GPUs in stock where our volumes are (pods can only run there),
     END {for (k in o) print o[k] "\t" k "\t" l[k]}' <<< "$rows" | sort -n | cut -f2- | sed 's/^/  /' | column -t -s $'\t'
 }
 
-cmd_volume() {  # [delete DATACENTER]
+cmd_volume() {  # [grow GB [DATACENTER] | delete DATACENTER]
   local vols; vols="$(volumes)"
   [[ $(jq length <<< "$vols") != 0 ]] || { echo "no network volumes ($VOLUME_NAME, $VOLUME_NAME-*)"; return; }
   jq -r '.[] | "\(.name)\t\(.id)\t\(.size) GB\t\(.dataCenterId)"' <<< "$vols" | column -t -s $'\t'
-  [[ ${1:-} == delete ]] || return 0
-  local vol; vol="$(jq --arg d "${2:-}" 'if length == 1 and $d == "" then .[0] else map(select(.dataCenterId == $d)) | first // empty end' <<< "$vols")"
-  [[ -n $vol ]] || die "which one? ./runpod.sh volume delete DATACENTER"
+  local action="${1:-}" gb="" dc
+  case $action in
+    "") return 0 ;;
+    grow) gb="${2:-}" dc="${3:-}"
+          [[ $gb =~ ^[0-9]+$ ]] || die "usage: ./runpod.sh volume grow GB [DATACENTER]" ;;
+    delete) dc="${2:-}" ;;
+    *) die "usage: ./runpod.sh volume [grow GB [DATACENTER] | delete DATACENTER]" ;;
+  esac
+  local vol; vol="$(jq --arg d "$dc" 'if length == 1 and $d == "" then .[0] else map(select(.dataCenterId == $d)) | first // empty end' <<< "$vols")"
+  [[ -n $vol ]] || die "which one? ./runpod.sh volume $action ${gb:+$gb }DATACENTER"
+  if [[ $action == grow ]]; then
+    local size; size="$(jq -r .size <<< "$vol")"
+    (( gb > size )) || die "it is $size GB already; a volume can only grow"
+    read -r -p "Grow $(jq -r '"\(.name) in \(.dataCenterId)"' <<< "$vol") from $size to $gb GB? It can't shrink again. [y/N] " answer
+    [[ $answer == [yY]* ]] || exit 1
+    rest PATCH "/networkvolumes/$(jq -r .id <<< "$vol")" "$(jq -nc --argjson s "$gb" '{size: $s}')" |
+      jq -r '"now \(.size) GB"'
+    return
+  fi
   ! check_pods || die "delete the pods first (./runpod.sh down)"
   read -r -p "Delete $(jq -r '"\(.name) in \(.dataCenterId)"' <<< "$vol") and everything on it (models, venv)? [y/N] " answer
   [[ $answer == [yY]* ]] || exit 1

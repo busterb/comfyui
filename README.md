@@ -133,12 +133,21 @@ in `.cache/runpod/api_key`.
 ./runpod.sh run --with gb10               # use your own gb10 too, next to the pod
 ./runpod.sh up; ./runpod.sh connect; ./runpod.sh down   # the same as run, in steps
 ./runpod.sh extend 1                      # one more hour before the pod deletes itself
-./runpod.sh volume [delete DC]            # list the network volumes, or delete one
+./runpod.sh volume                        # list the network volumes
+./runpod.sh volume grow 110               # enlarge the volume to 110 GB (it can't shrink again)
+./runpod.sh volume delete DC              # delete one, with everything on it
 ```
 
 The project, its venv and the models live on a RunPod network volume, which outlives the pods. The first pod
 on a volume installs everything and downloads the models, which takes about 15 minutes. Later pods are ready
 in a few minutes. A volume is billed monthly by size.
+
+The People Edit Turbo models take about 30 GB. The H3 video workflow needs 42 GB more, so grow the volume to
+110 GB before renting for it. H3 runs best on a 96 GB RTX PRO 6000:
+
+```sh
+./runpod.sh run --gpu "RTX PRO 6000" --workflow "H3 image to video.json" --wait 30
+```
 
 A volume belongs to one data center, and pods can only use the volume in their own data center. `runpod.sh`
 keeps one volume per data center you rent in. Without `--datacenter`, it rents where one of your volumes is and
