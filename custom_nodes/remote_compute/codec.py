@@ -4,10 +4,15 @@ Container: b"RCV1", u32 header length, JSON header, then the binary blobs the he
 their dtype and shape. Image-like float tensors are sent as uint8 when that is lossless (images loaded from
 8-bit files are exact multiples of 1/255), or when the caller asks for 8-bit (long frame sequences headed for
 an 8-bit video encoder); everything else goes as raw float bytes.
+
+The frames of an 8-bit video value (on its way to SaveVideo, which encodes it to H.264 again anyway) go as
+H.264 in RGB at high quality: about 1/7 the size of the 8-bit frames, which matters on a slow link, at an
+average error under 1 of 255. REMOTE_COMPUTE_LOSSLESS_VIDEO=1 sends them as 8-bit frames instead.
 """
 
 import io
 import json
+import os
 import struct
 import zlib
 from fractions import Fraction
@@ -16,6 +21,8 @@ import numpy as np
 import torch
 
 MAGIC = b"RCV1"
+LOSSLESS_VIDEO = os.environ.get("REMOTE_COMPUTE_LOSSLESS_VIDEO", "") not in ("", "0")
+VIDEO_CRF = 10  # libx264rgb; 45.8 dB PSNR on an H3 clip, 10.7 MB for 124 frames at 512x672
 
 # uint8 modes: "div" decodes u / 255 (exact for 8-bit sources), "trunc" decodes (u + 0.25) / 255 so that the
 # consumer's own 8-bit conversion, (x * 255) truncated or rounded, lands back on u.
@@ -55,6 +62,27 @@ class _Writer:
             out["data"] = self.blob(t.contiguous().numpy().tobytes(), compress=t.dtype in (torch.uint8, torch.bool))
         return out
 
+    def video_frames(self, t):
+        """8-bit video frames [N, H, W, 3] as H.264 in RGB (no color conversion); others as tensor(eight_bit)."""
+        t = t.detach().cpu()
+        if LOSSLESS_VIDEO or t.ndim != 4 or t.shape[-1] != 3 or t.shape[0] < 2 or not t.is_floating_point():
+            return self.tensor(t, eight_bit=True)
+        try:
+            import av
+        except ImportError:
+            return self.tensor(t, eight_bit=True)
+        frames = (t.float() * 255).round().clamp(0, 255).to(torch.uint8).numpy()
+        buf = io.BytesIO()
+        with av.open(buf, "w", format="matroska") as c:
+            s = c.add_stream("libx264rgb", rate=24)
+            s.width, s.height, s.pix_fmt = frames.shape[2], frames.shape[1], "rgb24"
+            s.options = {"crf": str(VIDEO_CRF), "preset": "veryfast"}
+            for a in frames:
+                c.mux(s.encode(av.VideoFrame.from_ndarray(a, format="rgb24")))
+            c.mux(s.encode())
+        return {"$": "h264", "dtype": str(t.dtype).removeprefix("torch."), "shape": list(t.shape),
+                "data": self.blob(buf.getvalue())}
+
     def value(self, v):
         from comfy_api.latest import Input
 
@@ -63,7 +91,7 @@ class _Writer:
         if isinstance(v, Input.Video):
             c = v.get_components()
             depth = v.get_bit_depth() if hasattr(v, "get_bit_depth") else 8
-            return {"$": "video", "images": self.tensor(c.images, eight_bit=depth == 8), "audio": self.value(c.audio), "frame_rate": self.value(c.frame_rate),
+            return {"$": "video", "images": self.video_frames(c.images) if depth == 8 else self.tensor(c.images, eight_bit=False), "audio": self.value(c.audio), "frame_rate": self.value(c.frame_rate),
                     "metadata": self.value(c.metadata), "alpha": self.value(c.alpha), "bit_depth": depth,
                     "color_space": v.get_color_space() if hasattr(v, "get_color_space") else "sRGB"}
         if isinstance(v, Fraction):
@@ -103,6 +131,13 @@ def decode(data, device="cpu"):
 
     def tensor(d):
         dtype = getattr(torch, d["dtype"])
+        if d["$"] == "h264":
+            import av
+            with av.open(io.BytesIO(blob(d["data"]))) as c:
+                frames = np.stack([f.to_ndarray(format="rgb24") for f in c.decode(video=0)])
+            if list(frames.shape) != d["shape"]:
+                raise ValueError(f"video frames decoded as {list(frames.shape)}, expected {d['shape']}")
+            return (torch.from_numpy(frames).float() / 255).to(dtype).to(device)
         if "u8" in d:
             u = torch.frombuffer(bytearray(blob(d["data"])), dtype=torch.uint8).reshape(d["shape"]).float()
             t = u / 255 if d["u8"] == U8_DIV else (u + 0.25) / 255
