@@ -88,21 +88,33 @@ cd $REMOTE_DIR
 ./setup.sh --no-service > setup.log 2>&1 || { tail -30 setup.log; exit 1; }
 grep -E '^torch .* OK on' setup.log || true
 n=${INSTANCES:-1}
-for i in \$(seq 0 \$(( n - 1 ))); do  # one ComfyUI per GPU; instance i on port 8188 + i, log /root/comfyui-i.log
-  port=\$(( 8188 + i ))
+start() {  # I: start instance I unless it runs with these settings; one per GPU, port 8188 + I, log /root/comfyui-I.log
+  local i=\$1 port=\$(( 8188 + \$1 )) pid gpu=
   pid=\$(pgrep -f "[m]ain.py --listen 127.0.0.1 --port \$port " | head -1 || true)
   if [[ -n \$pid ]] && ! tr '\\0' '\\n' < /proc/\$pid/environ | grep -qxF "REMOTE_COMPUTE_DEADLINE_FILE=${DEADLINE_FILE:-}"; then
     kill \$pid; sleep 5; pid=  # started with other settings (by an older version of this script, say)
   fi
-  gpu=; (( n == 1 )) || gpu="--cuda-device \$i"
+  (( n == 1 )) || gpu="--cuda-device \$i"
   # (an "a || b &" would background a subshell holding this SSH session's output open, so the session never ends)
   if [[ -z \$pid ]]; then
     COMFYUI_PORT=\$port $settings setsid nohup ./run.sh \$gpu ${COMFYUI_ARGS:-} > /root/comfyui-\$i.log 2>&1 < /dev/null &
   fi
-done
+}
+for i in \$(seq 0 \$(( n - 1 ))); do start \$i; done
+# Wait for each to answer. Python and the venv are on the network volume, and once in a while a read from it
+# never returns, so ComfyUI hangs at startup. When its log stops growing for 2 minutes, restart it (twice at most).
 for i in \$(seq 0 \$(( n - 1 ))); do
-  for _ in \$(seq 1 150); do curl -s -o /dev/null http://127.0.0.1:\$(( 8188 + i ))/ && continue 2; sleep 2; done
-  tail -30 /root/comfyui-\$i.log; exit 1
+  log=/root/comfyui-\$i.log restarts=0 size=-1 still=0
+  while ! curl -s -o /dev/null http://127.0.0.1:\$(( 8188 + i ))/; do
+    sleep 5
+    new=\$(stat -c %s \$log 2>/dev/null || echo 0)
+    if (( new != size )); then size=\$new still=0; continue; fi
+    (( (still += 5) < 120 )) && continue
+    (( restarts++ < 2 )) || { tail -30 \$log; exit 1; }
+    echo "ComfyUI \$i hung at startup (no output for 2 min); restarting it"
+    pkill -9 -f "[m]ain.py --listen 127.0.0.1 --port \$(( 8188 + i )) " || true
+    sleep 2; start \$i; size=-1 still=0
+  done
 done
 EOF
 
