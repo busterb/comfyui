@@ -81,6 +81,22 @@ included; install it into `ComfyUI/custom_nodes/` yourself.
 
 Each workflow has a "How to use" note below its nodes. The video workflows also list their model links.
 
+## Character LoRAs
+
+`lora.sh` trains a LoRA that teaches the People Edit Turbo model (Qwen Image 2.1) one character, such as a
+puppet. It runs ComfyUI's training nodes on a compute machine.
+
+1. Put 15-30 photos of the character in `ComfyUI/input/lora/NAME/`. Vary the angles, poses, lighting and
+   backgrounds, and keep the character alone in each photo.
+2. `./lora.sh caption NAME HOST` drafts a caption for each photo, in a `.txt` file next to it. Fix any that
+   are wrong. A caption should describe the pose, framing, setting and light, not the character's looks.
+3. `./lora.sh train NAME HOST` trains the LoRA. It lands in `models/loras/characters/NAME.safetensors`, both
+   on HOST and here.
+
+HOST is an SSH host running this project's ComfyUI, as for `remote.sh`. The first run downloads the full
+Qwen Image 2.1 model there (14 GB). To train on a RunPod pod:
+`SSH_CONFIG=.cache/runpod/ssh_config ./lora.sh train NAME runpod`.
+
 ## Remote compute
 
 `remote.sh` starts a ComfyUI on this machine that sends the GPU work to another machine running this project.
