@@ -233,7 +233,7 @@ if [[ $UNIFIED_MB -gt 0 ]]; then
   if [[ $UNIFIED_MB -ge 45000 ]]; then
     echo "- ${UNIFIED_MB} MB unified memory: use the Turbo and 8GB workflows; int8 Qwen models should fit, bf16 ones will not"
   else
-    echo "- ${UNIFIED_MB} MB unified memory: use the People Edit 8GB workflows"
+    echo "- ${UNIFIED_MB} MB unified memory: use the Character Edit 8GB workflows"
   fi
   echo "- MPS has no fp8: in the 8GB workflows pick the bf16 models from Comfy-Org/Flux-2-Klein-4B instead"
   echo "  (flux-2-klein-4b.safetensors, qwen_3_4b.safetensors under split_files/)"
@@ -241,11 +241,11 @@ elif [[ $IGPU == 1 ]]; then
   echo "- iGPU shares system RAM (${VRAM_MB} MB carve-out + ${GTT_MB} MB GTT): use the Turbo and 8GB workflows"
 elif [[ $VRAM_MB -gt 0 ]]; then
   if [[ $VRAM_MB -ge 23000 ]]; then
-    echo "- ${VRAM_MB} MB VRAM: all People Edit workflows should run"
+    echo "- ${VRAM_MB} MB VRAM: all Character Edit workflows should run"
   elif [[ $VRAM_MB -ge 11000 ]]; then
     echo "- ${VRAM_MB} MB VRAM: use the Turbo and 8GB workflows (Qwen ones may need int8 models)"
   else
-    echo "- ${VRAM_MB} MB VRAM: use the People Edit 8GB workflows"
+    echo "- ${VRAM_MB} MB VRAM: use the Character Edit 8GB workflows"
   fi
 fi
 echo "- Missing models: open a workflow, then Extensions -> Download missing models to server"

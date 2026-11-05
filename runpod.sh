@@ -18,7 +18,7 @@
 #   --gpu NAME          GPU as `./runpod.sh offers` lists it (default "RTX 4090"). Give it more than once to rent
 #                       more pods, e.g. --gpu "RTX 4090" --gpu "RTX 4090": jobs then run on all of them at once
 #   --workflow NAME     download the models of the workflows whose file name contains NAME (repeatable;
-#                       default "People Edit Turbo")
+#                       default "Character Edit Turbo")
 #   --hours H           delete the pods after this long (default 3; ./runpod.sh extend adds more)
 #   --idle MINUTES      delete a pod after this long without jobs or a connected client (default 30, 0 = off)
 #   --datacenter ID     where to rent; creates a network volume there if there is none (default: of the data
@@ -272,7 +272,7 @@ cmd_up() {
   [[ $per_pod =~ ^[1-8]$ ]] || die "--gpus-per-pod takes 1 to 8"
   [[ $wait =~ ^[0-9]+$ ]] || die "--wait takes whole minutes"
   (( ${#gpus[@]} )) || gpus=("RTX 4090")
-  (( ${#workflows[@]} )) || workflows=("People Edit Turbo")
+  (( ${#workflows[@]} )) || workflows=("Character Edit Turbo")
   local models; models="$(workflow_models "${workflows[@]}")"
   if [[ $dry == 0 ]] && check_pods; then  # set up pods rented before (a run that was interrupted, say)
     echo "continuing with the pods rented before ($(aliases | paste -sd' ')); ./runpod.sh down to drop them"

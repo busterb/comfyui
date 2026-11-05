@@ -5,7 +5,8 @@ different hardware. It has:
 
 - scripts that build an isolated Python environment and pick ComfyUI's launch flags for the machine,
 - a few custom nodes,
-- "People" workflows for editing photos of people and turning them into short videos,
+- "Character" workflows for editing photos of people or puppets and turning them into short videos,
+- a script that trains a LoRA for one character,
 - a remote mode that computes on another machine's GPU, or a rented one, while your files stay local.
 
 ComfyUI itself is not modified. It is a git submodule pinned to a tested upstream commit.
@@ -70,20 +71,20 @@ included; install it into `ComfyUI/custom_nodes/` yourself.
 
 ## Workflows
 
-- **People Edit**: edit a photo of a person from a text instruction, optionally taking clothing, hair or
+- **Character Edit**: edit a photo of a person or puppet from a text instruction, optionally taking clothing, hair or
   style from a reference image. Three versions: standard and Turbo (Qwen-Image 2.1) and 8GB (FLUX.2 Klein,
   for 8 GB GPUs). Each comes as "1 image" and "main + reference"; Turbo also has a "batch folder" version that
   edits every image in a folder.
-- **People Video - H3 image to video**: MiniMax H3 image to video, with generated sound. Needs a GB10-class
+- **Character Video - H3 image to video**: MiniMax H3 image to video, with generated sound. Needs a GB10-class
   machine. The **(Mac)** version uses model files Apple GPUs can load and runs the text encoder on the CPU.
-- **People Video - Wan 2.2 5B / 14B image to video**: silent clips. The 14B version keeps the person's
+- **Character Video - Wan 2.2 5B / 14B image to video**: silent clips. The 14B version keeps the character's
   identity much better.
 
 Each workflow has a "How to use" note below its nodes. The video workflows also list their model links.
 
 ## Character LoRAs
 
-`lora.sh` trains a LoRA that teaches the People Edit Turbo model (Qwen Image 2.1) one character, such as a
+`lora.sh` trains a LoRA that teaches the Character Edit Turbo model (Qwen Image 2.1) one character, such as a
 puppet. It runs ComfyUI's training nodes on a compute machine.
 
 1. Put 15-30 photos of the character in `ComfyUI/input/lora/NAME/`. Vary the angles, poses, lighting and
@@ -138,7 +139,7 @@ in `.cache/runpod/api_key`.
 
 ```sh
 ./runpod.sh offers                        # GPUs in stock and their prices
-./runpod.sh run                           # rent an RTX 4090 for the People Edit Turbo workflows, run
+./runpod.sh run                           # rent an RTX 4090 for the Character Edit Turbo workflows, run
                                           # remote.sh against it, and delete the pod when you quit
 ./runpod.sh run --gpu "RTX 5090" --workflow "Wan 2.2 5B" --hours 1
 ./runpod.sh run --datacenter EUR-IS-1     # rent in a particular data center
@@ -160,7 +161,7 @@ in a few minutes. A volume is billed monthly by size.
 
 The volume needs room for the models of every workflow you rent for:
 
-- People Edit Turbo: about 30 GB.
+- Character Edit Turbo: about 30 GB.
 - H3 image to video: 42 GB. An RTX PRO 6000 (96 GB) holds all of it. An RTX 5090 (32 GB) works, more slowly.
 
 Use `./runpod.sh volume grow GB` to make room. For H3:

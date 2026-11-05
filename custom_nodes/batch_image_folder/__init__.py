@@ -54,7 +54,7 @@ class LoadImageFolderBatch:
         return {
             "required": {
                 "folder": (folders, {"default": DEFAULT_FOLDER, "tooltip": "Subfolder of ComfyUI/input holding the images to edit."}),
-                "filename_prefix": ("STRING", {"default": "people_edit_batch", "tooltip": "Results are saved as <prefix>_<source name>_00001.png"}),
+                "filename_prefix": ("STRING", {"default": "character_edit_batch", "tooltip": "Results are saved as <prefix>_<source name>_00001.png"}),
                 "index": ("INT", {"default": 0, "min": 0, "max": 100000, "tooltip": "Which image to load, in name order (wraps around). Run all images in folder sets this for each job."}),
             }
         }

@@ -1,22 +1,22 @@
 {
- "id": "13695946-cb79-4d52-9dcc-145b29fa51d5",
+ "id": "e0fce7ac-9edc-47e6-95e0-2d70f5dcf847",
  "revision": 0,
- "last_node_id": 508,
- "last_link_id": 916,
+ "last_node_id": 501,
+ "last_link_id": 903,
  "nodes": [
   {
    "id": 459,
    "type": "bc1c967a-7f6a-4be9-a372-dad16e4f28e3",
    "pos": [
     657,
-    2419.9458226107668
+    2420
    ],
    "size": [
     420,
-    930
+    760
    ],
    "flags": {},
-   "order": 4,
+   "order": 5,
    "mode": 0,
    "inputs": [
     {
@@ -38,6 +38,15 @@
      "link": null
     },
     {
+     "label": "steps",
+     "name": "steps",
+     "type": "INT",
+     "widget": {
+      "name": "steps"
+     },
+     "link": null
+    },
+    {
      "label": "custom_size",
      "name": "switch",
      "type": "BOOLEAN",
@@ -52,6 +61,15 @@
      "type": "COMBO",
      "widget": {
       "name": "scheduler"
+     },
+     "link": null
+    },
+    {
+     "label": "scheduler",
+     "name": "scheduler_1",
+     "type": "COMBO",
+     "widget": {
+      "name": "scheduler_1"
      },
      "link": null
     },
@@ -93,7 +111,7 @@
      "name": "images.image_2",
      "shape": 7,
      "type": "IMAGE",
-     "link": 916
+     "link": 728
     },
     {
      "label": "image_3",
@@ -172,12 +190,14 @@
     4096,
     "",
     1,
+    40,
     false,
     1024,
     1024,
     "euler",
+    "simple",
     891836227295375,
-    "qwen_image_2.1_turbo_bf16.safetensors",
+    "qwen_image_2.1_bf16.safetensors",
     "qwen3vl_8b_bf16.safetensors",
     "qwen_image_2.1_vae_bf16.safetensors",
     "auto",
@@ -186,39 +206,41 @@
    ],
    "widgets_values_named": {
     "resolution": 0,
-    "prompt": "Relight the scene as a clear moonlit night: the sky seen through the oculus becomes a deep night sky with a bright full moon and a few stars, and the tree stays as a dark night silhouette. Soft blue-silver moonlight is now the only light source, casting a cool pale pool of light on the circular stone platform and a long soft shadow of the dancer. The concrete walls turn cool blue-grey with deep shadows, and the dancer's black dress catches a faint silver rim light. Keep her exact pose, the architecture, the framing and the tree position unchanged.",
+    "prompt": "Replace costumes for the character",
     "switch_1": false,
     "thinking": false,
     "max_length": 4096,
     "negative_prompt": "",
     "cfg": 1,
+    "steps": 25,
     "switch": false,
     "width": 1024,
     "height": 1024,
     "scheduler": "euler",
+    "scheduler_1": "simple",
     "seed": 891836227295375,
-    "unet_name": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+    "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
     "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
     "vae_name": "qwen_image_2.1_vae_bf16.safetensors",
     "device": "auto",
     "dtype": "default",
     "clip_name_1": "qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors"
    },
-   "title": "Turbo Edit (Qwen Image 2.1)"
+   "title": "Edit (Qwen Image 2.1)"
   },
   {
    "id": 461,
    "type": "SaveImageAdvanced",
    "pos": [
     1127,
-    2419.9458226107668
+    2420
    ],
    "size": [
     710,
     760
    ],
    "flags": {},
-   "order": 5,
+   "order": 6,
    "mode": 0,
    "showAdvanced": true,
    "inputs": [
@@ -237,7 +259,7 @@
    ],
    "properties": {},
    "widgets_values": [
-    "people_edit_turbo_reference",
+    "character_edit_standard_reference",
     "png",
     "8-bit",
     "sRGB"
@@ -254,7 +276,7 @@
    "type": "MarkdownNote",
    "pos": [
     600,
-    3689.9458226107668
+    3690
    ],
    "size": [
     420,
@@ -281,7 +303,7 @@
    "type": "LoadImage",
    "pos": [
     140,
-    2419.9458226107668
+    2420
    ],
    "size": [
     467,
@@ -313,78 +335,24 @@
     "image"
    ],
    "widgets_values_named": {
-    "image": "ballet_dancer_photography_minimalist_architecture.png",
+    "image": "portrait_model_denim.png",
     "upload": "image"
    },
    "title": "Main image <image1> (edited)"
   },
   {
-   "id": 476,
-   "type": "MarkdownNote",
-   "pos": [
-    140,
-    3689.9458226107668
-   ],
-   "size": [
-    420,
-    620
-   ],
-   "flags": {},
-   "order": 2,
-   "mode": 0,
-   "inputs": [],
-   "outputs": [],
-   "title": "Note: How to use",
-   "properties": {},
-   "widgets_values": [
-    "## Prompting tips for people edits\n\n- `<image1>` is the photo being edited; `<image2>` is the reference (garment, hairstyle, accessory, face, pose...).\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be specific: *\"loose shoulder-length waves, dark auburn\"* beats *\"new hair\"*.\n- One or two changes per run work best. For several changes, run again on the output.\n- Expressions: name the emotion and the physical cues (*\"soft closed-mouth smile, slightly raised cheeks, relaxed eyes\"*).\n\n## Settings worth changing\n\n- **Turbo**: distilled model on a fixed 8-step schedule (about 15 s per edit at resolution 1024, ~3.5x faster than the standard workflow). Slightly less fine texture in hair and fabric; use the standard workflow for final images.\n- **refine_prompt** + **thinking**: turn both on to let the Qwen 3.5 prompt enhancer expand a short instruction. Better for vague prompts, adds ~40 s or more per run.\n- **seed**: re-run for variations; fix the seed to compare prompt wording.\n- **resolution**: 1024 resizes inputs to about 1 megapixel (the model's native size), keeping aspect ratio. 1536 or 2048 gives a larger output but is much slower. 0 keeps the original size: avoid this for phone photos (9+ MP), which can take many minutes and exceed the model's 2048x2048 limit.\n\n## Models (all local, in ComfyUI/models)\n\n- diffusion_models/qwen_image_2.1_turbo_bf16.safetensors\n- text_encoders/qwen3vl_8b_bf16.safetensors\n- text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors (prompt enhancer)\n- vae/qwen_image_2.1_vae_bf16.safetensors\n\nMissing? Extensions → *Download missing models to server*.\n"
-   ],
-   "widgets_values_named": {
-    "text": "Guide: [Subgraph](https://docs.comfy.org/interface/features/subgraph)\n\n## Input Asset\n\n- [ballet_dancer_photography_minimalist_architecture.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/ballet_dancer_photography_minimalist_architecture.png)\n\n## Model Links\n\n- [Hugging Face:Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1)\n- [ModelScope:Comfy-Org/Qwen-Image-2.1](https://modelscope.cn/models/Comfy-Org/Qwen-Image-2.1)\n\n**diffusion_models**\n\n- [qwen_image_2.1_turbo_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_bf16.safetensors) (13.25 GB)\n- [qwen_image_2.1_turbo_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors) (6.76 GB)\n\n**text_encoders**\n\n- [qwen3vl_8b_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors) (16.33 GB)\n- [qwen3vl_8b_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors) (8.71 GB) \n- [qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors) (8.82 GB)\n\n**vae**\n\n- [qwen_image_2.1_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors) (644.2 MB)\n\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 diffusion_models/\n│   │   ├── qwen_image_2.1_turbo_bf16.safetensors\n│   │   └── qwen_image_2.1_turbo_int8_convrot.safetensors\n│   ├── 📂 text_encoders/\n│   │   ├── qwen3vl_8b_bf16.safetensors\n│   │   ├── qwen3vl_8b_int8_convrot.safetensors\n│   │   └── qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors│   └── 📂 vae/\n│       └── qwen_image_2.1_vae_bf16.safetensors\n```\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
-   },
-   "color": "#222",
-   "bgcolor": "#000"
-  },
-  {
-   "id": 501,
-   "type": "MarkdownNote",
-   "pos": [
-    1060,
-    3689.9458226107668
-   ],
-   "size": [
-    420,
-    480
-   ],
-   "flags": {},
-   "order": 3,
-   "mode": 0,
-   "inputs": [],
-   "outputs": [],
-   "title": "Note: PE",
-   "properties": {},
-   "widgets_values": [
-    "## Prompt Enhancer\n\nThe prompt enhancer rewrites your instruction with the Qwen 3.5 prompt enhancer model before the edit model sees it. These settings follow the official prompt enhancer release, and the ones you are most likely to change are exposed on the node.\n\n- `refine_prompt`: on runs the rewrite and feeds it to the edit model, off passes your instruction through as written. On gives the edit model a fuller prompt and usually better results; off skips the rewrite pass and the run finishes faster. This template starts with it off.\n- `thinking`: turn this on together with the enhancer. The checkpoint was trained with a reasoning block and loses quality without it.\n- `max_length`: the token budget for the reasoning block plus the rewritten prompt, 4096 here. The official setting is 24000; this template caps it lower so a single rewrite cannot run for many minutes.\n- `sampling_mode`: the sampling values live inside the subgraph. They follow the official ones: `temperature` 1.0, `top_p` 0.95, `top_k` 20, `min_p` 0, `presence_penalty` 0, `repetition_penalty` 1.0.\n\nThe enhancer checkpoint and its system prompt live inside the subgraph."
-   ],
-   "widgets_values_named": {
-    "text": "## Prompt Enhancer\n\nThe prompt enhancer rewrites your instruction with the Qwen 3.5 prompt enhancer model before the edit model sees it. These settings follow the official prompt enhancer release, and the ones you are most likely to change are exposed on the node.\n\n- `refine_prompt`: on runs the rewrite and feeds it to the edit model, off passes your instruction through as written. On gives the edit model a fuller prompt and usually better results; off skips the rewrite pass and the run finishes faster. This template starts with it off.\n- `thinking`: turn this on together with the enhancer. The checkpoint was trained with a reasoning block and loses quality without it.\n- `max_length`: the token budget for the reasoning block plus the rewritten prompt, 4096 here. The official setting is 24000; this template caps it lower so a single rewrite cannot run for many minutes.\n- `sampling_mode`: the sampling values live inside the subgraph. They follow the official ones: `temperature` 1.0, `top_p` 0.95, `top_k` 20, `min_p` 0, `presence_penalty` 0, `repetition_penalty` 1.0.\n\nThe enhancer checkpoint and its system prompt live inside the subgraph."
-   },
-   "color": "#222",
-   "bgcolor": "#000"
-  },
-  {
-   "id": 508,
+   "id": 475,
    "type": "LoadImage",
    "pos": [
     140,
-    3029.9458226107668
+    3030
    ],
    "size": [
     467,
     550
    ],
    "flags": {},
-   "order": 1,
+   "order": 2,
    "mode": 0,
    "inputs": [],
    "outputs": [
@@ -392,7 +360,7 @@
      "name": "IMAGE",
      "type": "IMAGE",
      "links": [
-      916
+      728
      ]
     },
     {
@@ -409,10 +377,64 @@
     "image"
    ],
    "widgets_values_named": {
-    "image": "ballet_dancer_photography_minimalist_architecture.png",
+    "image": "clothing_light_blue_denim_shirt.png",
     "upload": "image"
    },
    "title": "Reference image <image2> (clothing, hair, face, style...)"
+  },
+  {
+   "id": 476,
+   "type": "MarkdownNote",
+   "pos": [
+    140,
+    3690
+   ],
+   "size": [
+    420,
+    620
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Note: How to use",
+   "properties": {},
+   "widgets_values": [
+    "## Prompting tips for character edits\n\n- `<image1>` is the photo being edited; `<image2>` is the reference (garment, hairstyle, accessory, face, pose...).\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be specific: *\"loose shoulder-length waves, dark auburn\"* beats *\"new hair\"*.\n- One or two changes per run work best. For several changes, run again on the output.\n- Expressions: name the emotion and the physical cues (*\"soft closed-mouth smile, slightly raised cheeks, relaxed eyes\"*).\n\n## Settings worth changing\n\n- **steps**: 40 by default. 40-50 is the official setting for the finest detail; 25 is faster. Speed: about 50-60 s per edit at resolution 1024.\n- **refine_prompt** + **thinking**: turn both on to let the Qwen 3.5 prompt enhancer expand a short instruction. Better for vague prompts, adds ~40 s or more per run.\n- **seed**: re-run for variations; fix the seed to compare prompt wording.\n- **resolution**: 1024 resizes inputs to about 1 megapixel (the model's native size), keeping aspect ratio. 1536 or 2048 gives a larger output but is much slower. 0 keeps the original size: avoid this for phone photos (9+ MP), which can take many minutes and exceed the model's 2048x2048 limit.\n\n## Models (all local, in ComfyUI/models)\n\n- diffusion_models/qwen_image_2.1_bf16.safetensors\n- text_encoders/qwen3vl_8b_bf16.safetensors\n- text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors (prompt enhancer)\n- vae/qwen_image_2.1_vae_bf16.safetensors\n\nMissing? Extensions → *Download missing models to server*.\n"
+   ],
+   "widgets_values_named": {
+    "text": "Guide: [Subgraph](https://docs.comfy.org/interface/features/subgraph)\n\n## Input Assets\n\n- [portrait_model_denim.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/portrait_model_denim.png)\n- [clothing_light_blue_denim_shirt.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/clothing_light_blue_denim_shirt.png)\n\n\n## Model Links\n\n- [Hugging Face:Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1)\n- [ModelScope:Comfy-Org/Qwen-Image-2.1](https://modelscope.cn/models/Comfy-Org/Qwen-Image-2.1)\n\n**diffusion_models**\n\n- [qwen_image_2.1_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_bf16.safetensors) (13.25 GB)\n- [qwen_image_2.1_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors) (6.76 GB)\n\n**text_encoders**\n\n- [qwen3vl_8b_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors) (16.33 GB)\n- [qwen3vl_8b_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors) (8.71 GB) \n- [qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors) (8.82 GB)\n\n**vae**\n\n- [qwen_image_2.1_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors) (644.2 MB)\n\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 diffusion_models/\n│   │   ├── qwen_image_2.1_bf16.safetensors\n│   │   └── qwen_image_2.1_int8_convrot.safetensors\n│   ├── 📂 text_encoders/\n│   │   ├── qwen3vl_8b_bf16.safetensors\n│   │   ├── qwen3vl_8b_int8_convrot.safetensors\n│   │   └── qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors│   └── 📂 vae/\n│       └── qwen_image_2.1_vae_bf16.safetensors\n```\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
+   },
+   "color": "#222",
+   "bgcolor": "#000"
+  },
+  {
+   "id": 501,
+   "type": "MarkdownNote",
+   "pos": [
+    1060,
+    3690
+   ],
+   "size": [
+    420,
+    480
+   ],
+   "flags": {},
+   "order": 4,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "title": "Note: PE",
+   "properties": {},
+   "widgets_values": [
+    "## Prompt Enhancer\n\nThe prompt enhancer rewrites your instruction with the Qwen 3.5 prompt enhancer model before the edit model sees it. These settings follow the official prompt enhancer release, and the ones you are most likely to change are exposed on the node.\n\n- `refine_prompt`: on runs the rewrite and feeds it to the edit model, off passes your instruction through as written. On gives the edit model a fuller prompt and usually better results; off skips the rewrite pass and the run finishes faster. This template starts with it off.\n- `thinking`: turn this on together with the enhancer. The checkpoint was trained with a reasoning block and loses quality without it.\n- `max_length`: the token budget for the reasoning block plus the rewritten prompt, 4096 here. The official setting is 24000; this template caps it lower so a single rewrite cannot run for many minutes.\n- `sampling_mode`: the sampling values live inside the subgraph. They follow the official ones: `temperature` 1.0, `top_p` 0.95, `top_k` 20, `min_p` 0, `presence_penalty` 0, `repetition_penalty` 1.0.\n\nThe enhancer checkpoint and its system prompt live inside the subgraph."
+   ],
+   "widgets_values_named": {
+    "text": "## Prompt Enhancer\n\nThe prompt enhancer rewrites your instruction with the Qwen 3.5 prompt enhancer model before the edit model sees it. These settings follow the official prompt enhancer release, and the ones you are most likely to change are exposed on the node.\n\n- `refine_prompt`: on runs the rewrite and feeds it to the edit model, off passes your instruction through as written. On gives the edit model a fuller prompt and usually better results; off skips the rewrite pass and the run finishes faster. This template starts with it off.\n- `thinking`: turn this on together with the enhancer. The checkpoint was trained with a reasoning block and loses quality without it.\n- `max_length`: the token budget for the reasoning block plus the rewritten prompt, 4096 here. The official setting is 24000; this template caps it lower so a single rewrite cannot run for many minutes.\n- `sampling_mode`: the sampling values live inside the subgraph. They follow the official ones: `temperature` 1.0, `top_p` 0.95, `top_k` 20, `min_p` 0, `presence_penalty` 0, `repetition_penalty` 1.0.\n\nThe enhancer checkpoint and its system prompt live inside the subgraph."
+   },
+   "color": "#222",
+   "bgcolor": "#000"
   }
  ],
  "links": [
@@ -421,7 +443,15 @@
    470,
    0,
    459,
-   7,
+   9,
+   "IMAGE"
+  ],
+  [
+   728,
+   475,
+   0,
+   459,
+   10,
    "IMAGE"
   ],
   [
@@ -430,14 +460,6 @@
    0,
    461,
    0,
-   "IMAGE"
-  ],
-  [
-   916,
-   508,
-   0,
-   459,
-   8,
    "IMAGE"
   ]
  ],
@@ -449,20 +471,20 @@
     "version": 1,
     "state": {
      "lastGroupId": 38,
-     "lastNodeId": 507,
-     "lastLinkId": 915,
+     "lastNodeId": 501,
+     "lastLinkId": 903,
      "lastRerouteId": 9
     },
     "revision": 0,
     "config": {},
-    "name": "Qwen Image 2.1 Turbo Edit (main + reference)",
+    "name": "Qwen Image 2.1 Edit (main + reference)",
     "inputNode": {
      "id": -10,
      "bounding": [
       -720,
       630,
       143.044921875,
-      608
+      648
      ]
     },
     "outputNode": {
@@ -556,11 +578,24 @@
       "name": "cfg",
       "type": "FLOAT",
       "linkIds": [
-       911
+       658
       ],
       "pos": [
        -600.955078125,
        774
+      ]
+     },
+     {
+      "id": "349c3f72-ba7a-4277-84ff-8029faa16019",
+      "name": "steps",
+      "type": "INT",
+      "linkIds": [
+       659
+      ],
+      "label": "steps",
+      "pos": [
+       -600.955078125,
+       794
       ]
      },
      {
@@ -573,7 +608,7 @@
       "label": "custom_size",
       "pos": [
        -600.955078125,
-       794
+       814
       ]
      },
      {
@@ -586,7 +621,7 @@
       "localized_name": "width",
       "pos": [
        -600.955078125,
-       814
+       834
       ]
      },
      {
@@ -599,7 +634,7 @@
       "localized_name": "height",
       "pos": [
        -600.955078125,
-       834
+       854
       ]
      },
      {
@@ -607,12 +642,25 @@
       "name": "scheduler",
       "type": "COMBO",
       "linkIds": [
-       915
+       662
       ],
       "label": "sampler",
       "pos": [
        -600.955078125,
-       854
+       874
+      ]
+     },
+     {
+      "id": "4710583f-3cb0-4091-87ab-dadd8a2e657c",
+      "name": "scheduler_1",
+      "type": "COMBO",
+      "linkIds": [
+       668
+      ],
+      "label": "scheduler",
+      "pos": [
+       -600.955078125,
+       894
       ]
      },
      {
@@ -620,12 +668,12 @@
       "name": "seed",
       "type": "INT",
       "linkIds": [
-       804,
-       914
+       667,
+       804
       ],
       "pos": [
        -600.955078125,
-       874
+       914
       ]
      },
      {
@@ -637,7 +685,7 @@
       ],
       "pos": [
        -600.955078125,
-       894
+       934
       ]
      },
      {
@@ -649,7 +697,7 @@
       ],
       "pos": [
        -600.955078125,
-       914
+       954
       ]
      },
      {
@@ -661,7 +709,7 @@
       ],
       "pos": [
        -600.955078125,
-       934
+       974
       ]
      },
      {
@@ -674,7 +722,7 @@
       "label": "cache_device",
       "pos": [
        -600.955078125,
-       954
+       994
       ]
      },
      {
@@ -687,7 +735,7 @@
       "label": "dtype",
       "pos": [
        -600.955078125,
-       974
+       1014
       ]
      },
      {
@@ -700,7 +748,7 @@
       "label": "PE_model",
       "pos": [
        -600.955078125,
-       994
+       1034
       ]
      },
      {
@@ -714,7 +762,7 @@
       "label": "image_1",
       "pos": [
        -600.955078125,
-       1014
+       1054
       ]
      },
      {
@@ -728,7 +776,7 @@
       "label": "image_2",
       "pos": [
        -600.955078125,
-       1034
+       1074
       ]
      },
      {
@@ -742,7 +790,7 @@
       "label": "image_3",
       "pos": [
        -600.955078125,
-       1054
+       1094
       ]
      },
      {
@@ -756,7 +804,7 @@
       "label": "image_4",
       "pos": [
        -600.955078125,
-       1074
+       1114
       ]
      },
      {
@@ -770,7 +818,7 @@
       "label": "image_5",
       "pos": [
        -600.955078125,
-       1094
+       1134
       ]
      },
      {
@@ -784,7 +832,7 @@
       "label": "image_6",
       "pos": [
        -600.955078125,
-       1114
+       1154
       ]
      },
      {
@@ -798,7 +846,7 @@
       "label": "image_7",
       "pos": [
        -600.955078125,
-       1134
+       1174
       ]
      },
      {
@@ -812,7 +860,7 @@
       "label": "image_8",
       "pos": [
        -600.955078125,
-       1154
+       1194
       ]
      },
      {
@@ -826,7 +874,7 @@
       "label": "image_9",
       "pos": [
        -600.955078125,
-       1174
+       1214
       ]
      },
      {
@@ -840,7 +888,7 @@
       "label": "image_10",
       "pos": [
        -600.955078125,
-       1194
+       1234
       ]
      }
     ],
@@ -873,7 +921,7 @@
        90
       ],
       "flags": {},
-      "order": 2,
+      "order": 1,
       "mode": 0,
       "inputs": [
        {
@@ -900,18 +948,18 @@
        "Node name for S&R": "UNETLoader",
        "models": [
         {
-         "name": "qwen_image_2.1_turbo_bf16.safetensors",
-         "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_bf16.safetensors",
+         "name": "qwen_image_2.1_bf16.safetensors",
+         "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_bf16.safetensors",
          "directory": "diffusion_models"
         }
        ]
       },
       "widgets_values": [
-       "qwen_image_2.1_turbo_bf16.safetensors",
+       "qwen_image_2.1_bf16.safetensors",
        "default"
       ],
       "widgets_values_named": {
-       "unet_name": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+       "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
        "weight_dtype": "default"
       }
      },
@@ -927,7 +975,7 @@
        120
       ],
       "flags": {},
-      "order": 3,
+      "order": 2,
       "mode": 0,
       "inputs": [
        {
@@ -983,7 +1031,7 @@
        70
       ],
       "flags": {},
-      "order": 4,
+      "order": 3,
       "mode": 0,
       "inputs": [
        {
@@ -1036,7 +1084,7 @@
        120
       ],
       "flags": {},
-      "order": 5,
+      "order": 4,
       "mode": 0,
       "inputs": [
        {
@@ -1094,14 +1142,14 @@
        60
       ],
       "flags": {},
-      "order": 6,
+      "order": 5,
       "mode": 0,
       "inputs": [
        {
         "localized_name": "samples",
         "name": "samples",
         "type": "LATENT",
-        "link": 907
+        "link": 651
        },
        {
         "localized_name": "vae",
@@ -1125,11 +1173,128 @@
       }
      },
      {
+      "id": 458,
+      "type": "KSampler",
+      "pos": [
+       1180,
+       640
+      ],
+      "size": [
+       270,
+       270
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "MODEL",
+        "link": 689
+       },
+       {
+        "localized_name": "positive",
+        "name": "positive",
+        "type": "CONDITIONING",
+        "link": 722
+       },
+       {
+        "localized_name": "negative",
+        "name": "negative",
+        "type": "CONDITIONING",
+        "link": 723
+       },
+       {
+        "localized_name": "latent_image",
+        "name": "latent_image",
+        "type": "LATENT",
+        "link": 682
+       },
+       {
+        "localized_name": "seed",
+        "name": "seed",
+        "type": "INT",
+        "widget": {
+         "name": "seed"
+        },
+        "link": 667
+       },
+       {
+        "localized_name": "steps",
+        "name": "steps",
+        "type": "INT",
+        "widget": {
+         "name": "steps"
+        },
+        "link": 659
+       },
+       {
+        "localized_name": "cfg",
+        "name": "cfg",
+        "type": "FLOAT",
+        "widget": {
+         "name": "cfg"
+        },
+        "link": 658
+       },
+       {
+        "localized_name": "sampler_name",
+        "name": "sampler_name",
+        "type": "COMBO",
+        "widget": {
+         "name": "sampler_name"
+        },
+        "link": 662
+       },
+       {
+        "localized_name": "scheduler",
+        "name": "scheduler",
+        "type": "COMBO",
+        "widget": {
+         "name": "scheduler"
+        },
+        "link": 668
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "LATENT",
+        "name": "LATENT",
+        "type": "LATENT",
+        "links": [
+         651
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+       0,
+       "randomize",
+       25,
+       1,
+       "euler",
+       "simple",
+       1
+      ],
+      "widgets_values_named": {
+       "seed": 0,
+       "control_after_generate": "randomize",
+       "steps": 25,
+       "cfg": 1,
+       "sampler_name": "euler",
+       "scheduler": "simple",
+       "denoise": 1
+      }
+     },
+     {
       "id": 468,
       "type": "ComfySwitchNode",
       "pos": [
-       479.85314513256685,
-       1015.0153766097112
+       570,
+       1040
       ],
       "size": [
        270,
@@ -1169,7 +1334,7 @@
         "name": "output",
         "type": "LATENT",
         "links": [
-         913
+         682
         ]
        }
       ],
@@ -1187,8 +1352,8 @@
       "id": 469,
       "type": "QwenImage21Cache",
       "pos": [
-       955.4012707927922,
-       398.1717177666044
+       1180,
+       460
       ],
       "size": [
        270,
@@ -1229,7 +1394,7 @@
         "name": "MODEL",
         "type": "MODEL",
         "links": [
-         908
+         689
         ]
        }
       ],
@@ -1249,12 +1414,12 @@
       "id": 474,
       "type": "TextEncodeQwenImage21",
       "pos": [
-       419.68682172750084,
-       430.45130327289627
+       500,
+       430
       ],
       "size": [
-       375.2628583088489,
-       446
+       460,
+       520
       ],
       "flags": {},
       "order": 9,
@@ -1315,6 +1480,34 @@
         "link": null
        },
        {
+        "localized_name": "image_7",
+        "name": "images.image_7",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 716
+       },
+       {
+        "localized_name": "image_8",
+        "name": "images.image_8",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 717
+       },
+       {
+        "localized_name": "image_9",
+        "name": "images.image_9",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 718
+       },
+       {
+        "localized_name": "image_10",
+        "name": "images.image_10",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 719
+       },
+       {
         "localized_name": "image_11",
         "name": "images.image_11",
         "shape": 7,
@@ -1355,34 +1548,6 @@
         "shape": 7,
         "type": "IMAGE",
         "link": 715
-       },
-       {
-        "localized_name": "image_7",
-        "name": "images.image_7",
-        "shape": 7,
-        "type": "IMAGE",
-        "link": 716
-       },
-       {
-        "localized_name": "image_8",
-        "name": "images.image_8",
-        "shape": 7,
-        "type": "IMAGE",
-        "link": 717
-       },
-       {
-        "localized_name": "image_9",
-        "name": "images.image_9",
-        "shape": 7,
-        "type": "IMAGE",
-        "link": 718
-       },
-       {
-        "localized_name": "image_10",
-        "name": "images.image_10",
-        "shape": 7,
-        "type": "IMAGE",
-        "link": 719
        }
       ],
       "outputs": [
@@ -1391,7 +1556,7 @@
         "name": "positive",
         "type": "CONDITIONING",
         "links": [
-         909
+         722
         ]
        },
        {
@@ -1399,7 +1564,7 @@
         "name": "negative",
         "type": "CONDITIONING",
         "links": [
-         910
+         723
         ]
        },
        {
@@ -1864,266 +2029,6 @@
        "use_default_template": true,
        "mtp": "auto"
       }
-     },
-     {
-      "id": 502,
-      "type": "ManualSigmas",
-      "pos": [
-       965.7365870616367,
-       1053.9252521551643
-      ],
-      "size": [
-       418.9732421875,
-       58
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-       {
-        "localized_name": "SIGMAS",
-        "name": "SIGMAS",
-        "type": "SIGMAS",
-        "links": [
-         906
-        ]
-       }
-      ],
-      "title": "Manual Sigmas (Qwen-Image-2.1-Turbo 8-step schedule)",
-      "properties": {
-       "Node name for S&R": "ManualSigmas"
-      },
-      "widgets_values": [
-       "1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0"
-      ],
-      "widgets_values_named": {
-       "sigmas": "1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0"
-      }
-     },
-     {
-      "id": 503,
-      "type": "KSamplerSelect",
-      "pos": [
-       956.9532525294051,
-       907.865461371432
-      ],
-      "size": [
-       270,
-       58
-      ],
-      "flags": {},
-      "order": 15,
-      "mode": 0,
-      "inputs": [
-       {
-        "localized_name": "sampler_name",
-        "name": "sampler_name",
-        "type": "COMBO",
-        "widget": {
-         "name": "sampler_name"
-        },
-        "link": 915
-       }
-      ],
-      "outputs": [
-       {
-        "localized_name": "SAMPLER",
-        "name": "SAMPLER",
-        "type": "SAMPLER",
-        "links": [
-         905
-        ]
-       }
-      ],
-      "title": "KSampler Select (euler)",
-      "properties": {
-       "Node name for S&R": "KSamplerSelect"
-      },
-      "widgets_values": [
-       "euler"
-      ],
-      "widgets_values_named": {
-       "sampler_name": "euler"
-      }
-     },
-     {
-      "id": 504,
-      "type": "RandomNoise",
-      "pos": [
-       956.9532525294051,
-       571.865461371432
-      ],
-      "size": [
-       270,
-       82
-      ],
-      "flags": {},
-      "order": 16,
-      "mode": 0,
-      "inputs": [
-       {
-        "localized_name": "noise_seed",
-        "name": "noise_seed",
-        "type": "INT",
-        "widget": {
-         "name": "noise_seed"
-        },
-        "link": 914
-       }
-      ],
-      "outputs": [
-       {
-        "localized_name": "NOISE",
-        "name": "NOISE",
-        "type": "NOISE",
-        "links": [
-         904
-        ]
-       }
-      ],
-      "title": "Random Noise",
-      "properties": {
-       "Node name for S&R": "RandomNoise"
-      },
-      "widgets_values": [
-       424242,
-       "randomize"
-      ],
-      "widgets_values_named": {
-       "noise_seed": 424242,
-       "control_after_generate": "randomize"
-      }
-     },
-     {
-      "id": 505,
-      "type": "SamplerCustomAdvanced",
-      "pos": [
-       1284.3410123920985,
-       595.4249474282406
-      ],
-      "size": [
-       220.2388671875,
-       106
-      ],
-      "flags": {},
-      "order": 17,
-      "mode": 0,
-      "inputs": [
-       {
-        "localized_name": "noise",
-        "name": "noise",
-        "type": "NOISE",
-        "link": 904
-       },
-       {
-        "localized_name": "guider",
-        "name": "guider",
-        "type": "GUIDER",
-        "link": 912
-       },
-       {
-        "localized_name": "sampler",
-        "name": "sampler",
-        "type": "SAMPLER",
-        "link": 905
-       },
-       {
-        "localized_name": "sigmas",
-        "name": "sigmas",
-        "type": "SIGMAS",
-        "link": 906
-       },
-       {
-        "localized_name": "latent_image",
-        "name": "latent_image",
-        "type": "LATENT",
-        "link": 913
-       }
-      ],
-      "outputs": [
-       {
-        "localized_name": "output",
-        "name": "output",
-        "type": "LATENT",
-        "links": [
-         907
-        ]
-       },
-       {
-        "localized_name": "denoised_output",
-        "name": "denoised_output",
-        "type": "LATENT",
-        "links": []
-       }
-      ],
-      "title": "Sampler Custom Advanced",
-      "properties": {
-       "Node name for S&R": "SamplerCustomAdvanced"
-      }
-     },
-     {
-      "id": 507,
-      "type": "CFGGuider",
-      "pos": [
-       956.9532525294051,
-       731.865461371432
-      ],
-      "size": [
-       270,
-       98
-      ],
-      "flags": {},
-      "order": 18,
-      "mode": 0,
-      "inputs": [
-       {
-        "localized_name": "model",
-        "name": "model",
-        "type": "MODEL",
-        "link": 908
-       },
-       {
-        "localized_name": "positive",
-        "name": "positive",
-        "type": "CONDITIONING",
-        "link": 909
-       },
-       {
-        "localized_name": "negative",
-        "name": "negative",
-        "type": "CONDITIONING",
-        "link": 910
-       },
-       {
-        "localized_name": "cfg",
-        "name": "cfg",
-        "type": "FLOAT",
-        "widget": {
-         "name": "cfg"
-        },
-        "link": 911
-       }
-      ],
-      "outputs": [
-       {
-        "localized_name": "GUIDER",
-        "name": "GUIDER",
-        "type": "GUIDER",
-        "links": [
-         912
-        ]
-       }
-      ],
-      "properties": {
-       "Node name for S&R": "CFGGuider"
-      },
-      "widgets_values": [
-       8
-      ],
-      "widgets_values_named": {
-       "cfg": 8
-      }
      }
     ],
     "groups": [
@@ -2157,8 +2062,8 @@
       "bounding": [
        360,
        300,
-       530.8552941790844,
-       871.7338850953031
+       700,
+       860
       ],
       "color": "#3f789e",
       "flags": {}
@@ -2167,10 +2072,10 @@
       "id": 37,
       "title": "Sampling",
       "bounding": [
-       924.1133558908087,
-       299.72738075964855,
-       633.5751735791238,
-       874.5578559968081
+       1090,
+       300,
+       470,
+       860
       ],
       "color": "#3f789e",
       "flags": {}
@@ -2206,6 +2111,22 @@
       "type": "IMAGE"
      },
      {
+      "id": 651,
+      "origin_id": 458,
+      "origin_slot": 0,
+      "target_id": 457,
+      "target_slot": 0,
+      "type": "LATENT"
+     },
+     {
+      "id": 682,
+      "origin_id": 468,
+      "origin_slot": 0,
+      "target_id": 458,
+      "target_slot": 3,
+      "type": "LATENT"
+     },
+     {
       "id": 684,
       "origin_id": 456,
       "origin_slot": 0,
@@ -2220,6 +2141,30 @@
       "target_id": 469,
       "target_slot": 0,
       "type": "MODEL"
+     },
+     {
+      "id": 689,
+      "origin_id": 469,
+      "origin_slot": 0,
+      "target_id": 458,
+      "target_slot": 0,
+      "type": "MODEL"
+     },
+     {
+      "id": 722,
+      "origin_id": 474,
+      "origin_slot": 0,
+      "target_id": 458,
+      "target_slot": 1,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 723,
+      "origin_id": 474,
+      "origin_slot": 1,
+      "target_id": 458,
+      "target_slot": 2,
+      "type": "CONDITIONING"
      },
      {
       "id": 724,
@@ -2262,89 +2207,25 @@
       "type": "BOOLEAN"
      },
      {
-      "id": 904,
-      "origin_id": 504,
-      "origin_slot": 0,
-      "target_id": 505,
-      "target_slot": 0,
-      "type": "NOISE"
-     },
-     {
-      "id": 905,
-      "origin_id": 503,
-      "origin_slot": 0,
-      "target_id": 505,
-      "target_slot": 2,
-      "type": "SAMPLER"
-     },
-     {
-      "id": 906,
-      "origin_id": 502,
-      "origin_slot": 0,
-      "target_id": 505,
-      "target_slot": 3,
-      "type": "SIGMAS"
-     },
-     {
-      "id": 907,
-      "origin_id": 505,
-      "origin_slot": 0,
-      "target_id": 457,
-      "target_slot": 0,
-      "type": "LATENT"
-     },
-     {
-      "id": 908,
-      "origin_id": 469,
-      "origin_slot": 0,
-      "target_id": 507,
-      "target_slot": 0,
-      "type": "MODEL"
-     },
-     {
-      "id": 909,
-      "origin_id": 474,
-      "origin_slot": 0,
-      "target_id": 507,
-      "target_slot": 1,
-      "type": "CONDITIONING"
-     },
-     {
-      "id": 910,
-      "origin_id": 474,
-      "origin_slot": 1,
-      "target_id": 507,
-      "target_slot": 2,
-      "type": "CONDITIONING"
-     },
-     {
-      "id": 911,
+      "id": 658,
       "origin_id": -10,
       "origin_slot": 6,
-      "target_id": 507,
-      "target_slot": 3,
+      "target_id": 458,
+      "target_slot": 6,
       "type": "FLOAT"
      },
      {
-      "id": 912,
-      "origin_id": 507,
-      "origin_slot": 0,
-      "target_id": 505,
-      "target_slot": 1,
-      "type": "GUIDER"
-     },
-     {
-      "id": 913,
-      "origin_id": 468,
-      "origin_slot": 0,
-      "target_id": 505,
-      "target_slot": 4,
-      "type": "LATENT"
+      "id": 659,
+      "origin_id": -10,
+      "origin_slot": 7,
+      "target_id": 458,
+      "target_slot": 5,
+      "type": "INT"
      },
      {
       "id": 703,
       "origin_id": -10,
-      "origin_slot": 7,
+      "origin_slot": 8,
       "target_id": 468,
       "target_slot": 2,
       "type": "BOOLEAN"
@@ -2352,7 +2233,7 @@
      {
       "id": 660,
       "origin_id": -10,
-      "origin_slot": 8,
+      "origin_slot": 9,
       "target_id": 456,
       "target_slot": 0,
       "type": "INT"
@@ -2360,31 +2241,39 @@
      {
       "id": 661,
       "origin_id": -10,
-      "origin_slot": 9,
+      "origin_slot": 10,
       "target_id": 456,
       "target_slot": 1,
       "type": "INT"
      },
      {
-      "id": 915,
+      "id": 662,
       "origin_id": -10,
-      "origin_slot": 10,
-      "target_id": 503,
-      "target_slot": 0,
+      "origin_slot": 11,
+      "target_id": 458,
+      "target_slot": 7,
       "type": "COMBO"
      },
      {
-      "id": 914,
+      "id": 668,
       "origin_id": -10,
-      "origin_slot": 11,
-      "target_id": 504,
-      "target_slot": 0,
+      "origin_slot": 12,
+      "target_id": 458,
+      "target_slot": 8,
+      "type": "COMBO"
+     },
+     {
+      "id": 667,
+      "origin_id": -10,
+      "origin_slot": 13,
+      "target_id": 458,
+      "target_slot": 4,
       "type": "INT"
      },
      {
       "id": 663,
       "origin_id": -10,
-      "origin_slot": 12,
+      "origin_slot": 14,
       "target_id": 451,
       "target_slot": 0,
       "type": "COMBO"
@@ -2392,7 +2281,7 @@
      {
       "id": 664,
       "origin_id": -10,
-      "origin_slot": 13,
+      "origin_slot": 15,
       "target_id": 453,
       "target_slot": 0,
       "type": "COMBO"
@@ -2400,7 +2289,7 @@
      {
       "id": 665,
       "origin_id": -10,
-      "origin_slot": 14,
+      "origin_slot": 16,
       "target_id": 454,
       "target_slot": 0,
       "type": "COMBO"
@@ -2408,7 +2297,7 @@
      {
       "id": 729,
       "origin_id": -10,
-      "origin_slot": 15,
+      "origin_slot": 17,
       "target_id": 469,
       "target_slot": 1,
       "type": "COMBO"
@@ -2416,7 +2305,7 @@
      {
       "id": 730,
       "origin_id": -10,
-      "origin_slot": 16,
+      "origin_slot": 18,
       "target_id": 469,
       "target_slot": 2,
       "type": "COMBO"
@@ -2424,7 +2313,7 @@
      {
       "id": 746,
       "origin_id": -10,
-      "origin_slot": 17,
+      "origin_slot": 19,
       "target_id": 477,
       "target_slot": 0,
       "type": "COMBO"
@@ -2440,7 +2329,7 @@
      {
       "id": 710,
       "origin_id": -10,
-      "origin_slot": 18,
+      "origin_slot": 20,
       "target_id": 474,
       "target_slot": 1,
       "type": "IMAGE"
@@ -2478,73 +2367,73 @@
       "type": "INT"
      },
      {
-      "id": 711,
-      "origin_id": -10,
-      "origin_slot": 19,
-      "target_id": 474,
-      "target_slot": 8,
-      "type": "IMAGE"
-     },
-     {
-      "id": 712,
-      "origin_id": -10,
-      "origin_slot": 20,
-      "target_id": 474,
-      "target_slot": 9,
-      "type": "IMAGE"
-     },
-     {
-      "id": 713,
-      "origin_id": -10,
-      "origin_slot": 21,
-      "target_id": 474,
-      "target_slot": 10,
-      "type": "IMAGE"
-     },
-     {
-      "id": 714,
-      "origin_id": -10,
-      "origin_slot": 22,
-      "target_id": 474,
-      "target_slot": 11,
-      "type": "IMAGE"
-     },
-     {
-      "id": 715,
-      "origin_id": -10,
-      "origin_slot": 23,
-      "target_id": 474,
-      "target_slot": 12,
-      "type": "IMAGE"
-     },
-     {
       "id": 716,
       "origin_id": -10,
-      "origin_slot": 24,
+      "origin_slot": 26,
       "target_id": 474,
-      "target_slot": 13,
+      "target_slot": 7,
       "type": "IMAGE"
      },
      {
       "id": 717,
       "origin_id": -10,
-      "origin_slot": 25,
+      "origin_slot": 27,
       "target_id": 474,
-      "target_slot": 14,
+      "target_slot": 8,
       "type": "IMAGE"
      },
      {
       "id": 718,
       "origin_id": -10,
-      "origin_slot": 26,
+      "origin_slot": 28,
       "target_id": 474,
-      "target_slot": 15,
+      "target_slot": 9,
       "type": "IMAGE"
      },
      {
       "id": 719,
       "origin_id": -10,
-      "origin_slot": 27,
+      "origin_slot": 29,
+      "target_id": 474,
+      "target_slot": 10,
+      "type": "IMAGE"
+     },
+     {
+      "id": 711,
+      "origin_id": -10,
+      "origin_slot": 21,
+      "target_id": 474,
+      "target_slot": 12,
+      "type": "IMAGE"
+     },
+     {
+      "id": 712,
+      "origin_id": -10,
+      "origin_slot": 22,
+      "target_id": 474,
+      "target_slot": 13,
+      "type": "IMAGE"
+     },
+     {
+      "id": 713,
+      "origin_id": -10,
+      "origin_slot": 23,
+      "target_id": 474,
+      "target_slot": 14,
+      "type": "IMAGE"
+     },
+     {
+      "id": 714,
+      "origin_id": -10,
+      "origin_slot": 24,
+      "target_id": 474,
+      "target_slot": 15,
+      "type": "IMAGE"
+     },
+     {
+      "id": 715,
+      "origin_id": -10,
+      "origin_slot": 25,
       "target_id": 474,
       "target_slot": 16,
       "type": "IMAGE"
@@ -2552,7 +2441,7 @@
      {
       "id": 750,
       "origin_id": -10,
-      "origin_slot": 18,
+      "origin_slot": 20,
       "target_id": 485,
       "target_slot": 0,
       "type": "IMAGE"
@@ -2560,7 +2449,7 @@
      {
       "id": 779,
       "origin_id": -10,
-      "origin_slot": 19,
+      "origin_slot": 21,
       "target_id": 485,
       "target_slot": 1,
       "type": "IMAGE"
@@ -2568,7 +2457,7 @@
      {
       "id": 780,
       "origin_id": -10,
-      "origin_slot": 20,
+      "origin_slot": 22,
       "target_id": 485,
       "target_slot": 2,
       "type": "IMAGE"
@@ -2576,7 +2465,7 @@
      {
       "id": 781,
       "origin_id": -10,
-      "origin_slot": 21,
+      "origin_slot": 23,
       "target_id": 485,
       "target_slot": 3,
       "type": "IMAGE"
@@ -2584,7 +2473,7 @@
      {
       "id": 782,
       "origin_id": -10,
-      "origin_slot": 22,
+      "origin_slot": 24,
       "target_id": 485,
       "target_slot": 4,
       "type": "IMAGE"
@@ -2592,7 +2481,7 @@
      {
       "id": 783,
       "origin_id": -10,
-      "origin_slot": 23,
+      "origin_slot": 25,
       "target_id": 485,
       "target_slot": 5,
       "type": "IMAGE"
@@ -2600,7 +2489,7 @@
      {
       "id": 784,
       "origin_id": -10,
-      "origin_slot": 24,
+      "origin_slot": 26,
       "target_id": 485,
       "target_slot": 6,
       "type": "IMAGE"
@@ -2608,7 +2497,7 @@
      {
       "id": 785,
       "origin_id": -10,
-      "origin_slot": 25,
+      "origin_slot": 27,
       "target_id": 485,
       "target_slot": 7,
       "type": "IMAGE"
@@ -2616,7 +2505,7 @@
      {
       "id": 786,
       "origin_id": -10,
-      "origin_slot": 26,
+      "origin_slot": 28,
       "target_id": 485,
       "target_slot": 8,
       "type": "IMAGE"
@@ -2624,7 +2513,7 @@
      {
       "id": 787,
       "origin_id": -10,
-      "origin_slot": 27,
+      "origin_slot": 29,
       "target_id": 485,
       "target_slot": 9,
       "type": "IMAGE"
@@ -2670,20 +2559,20 @@
       "type": "INT"
      },
      {
-      "id": 804,
-      "origin_id": -10,
-      "origin_slot": 11,
-      "target_id": 500,
-      "target_slot": 7,
-      "type": "INT"
-     },
-     {
       "id": 902,
       "origin_id": -10,
       "origin_slot": 3,
       "target_id": 500,
       "target_slot": 8,
       "type": "BOOLEAN"
+     },
+     {
+      "id": 804,
+      "origin_id": -10,
+      "origin_slot": 13,
+      "target_id": 500,
+      "target_slot": 7,
+      "type": "INT"
      }
     ],
     "extra": {}
@@ -2692,24 +2581,24 @@
  },
  "config": {},
  "extra": {
-  "ds": {
-   "scale": 0.4559674823113218,
-   "offset": [
-    101.24527354978153,
-    -2280.2888800881387
-   ]
-  },
-  "frontendVersion": "1.55.14",
+  "frontendVersion": "1.53.6",
   "VHS_latentpreview": false,
   "VHS_latentpreviewrate": 0,
   "VHS_MetadataImage": true,
-  "VHS_KeepIntermediate": true
+  "VHS_KeepIntermediate": true,
+  "ds": {
+   "scale": 0.6940244165782402,
+   "offset": [
+    18.49586465896226,
+    -2317.9564251550173
+   ]
+  }
  },
  "version": 0.4,
  "models": [
   {
-   "name": "qwen_image_2.1_turbo_bf16.safetensors",
-   "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_bf16.safetensors",
+   "name": "qwen_image_2.1_bf16.safetensors",
+   "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_bf16.safetensors",
    "directory": "diffusion_models"
   },
   {

@@ -1,5 +1,5 @@
 {
- "id": "e0fce7ac-9edc-47e6-95e0-2d70f5dcf847",
+ "id": "b6a1073b-2f0b-4ace-91c5-9ee7e0f1e85d",
  "revision": 0,
  "last_node_id": 501,
  "last_link_id": 903,
@@ -8,7 +8,7 @@
    "id": 459,
    "type": "bc1c967a-7f6a-4be9-a372-dad16e4f28e3",
    "pos": [
-    657,
+    540,
     2420
    ],
    "size": [
@@ -111,7 +111,7 @@
      "name": "images.image_2",
      "shape": 7,
      "type": "IMAGE",
-     "link": 728
+     "link": null
     },
     {
      "label": "image_3",
@@ -184,7 +184,7 @@
    },
    "widgets_values": [
     1024,
-    "Dress the person in <image1> in the shirt from <image2>: same light blue denim, collar, white buttons and chest pocket, worn buttoned. Keep the face, identity, skin tone, hair, pose, lighting and background of <image1> unchanged.",
+    "Change the expression of the person in <image1> to a soft, warm closed-mouth smile with slightly raised cheeks and relaxed eyes. Keep the face, identity, skin tone, hairstyle, pose, clothing, lighting and background unchanged.",
     false,
     false,
     4096,
@@ -232,7 +232,7 @@
    "id": 461,
    "type": "SaveImageAdvanced",
    "pos": [
-    1127,
+    1010,
     2420
    ],
    "size": [
@@ -259,7 +259,7 @@
    ],
    "properties": {},
    "widgets_values": [
-    "people_edit_standard_reference",
+    "character_edit_standard_single",
     "png",
     "8-bit",
     "sRGB"
@@ -276,7 +276,7 @@
    "type": "MarkdownNote",
    "pos": [
     600,
-    3690
+    3290
    ],
    "size": [
     420,
@@ -306,7 +306,7 @@
     2420
    ],
    "size": [
-    467,
+    350,
     550
    ],
    "flags": {},
@@ -341,53 +341,11 @@
    "title": "Main image <image1> (edited)"
   },
   {
-   "id": 475,
-   "type": "LoadImage",
-   "pos": [
-    140,
-    3030
-   ],
-   "size": [
-    467,
-    550
-   ],
-   "flags": {},
-   "order": 2,
-   "mode": 0,
-   "inputs": [],
-   "outputs": [
-    {
-     "name": "IMAGE",
-     "type": "IMAGE",
-     "links": [
-      728
-     ]
-    },
-    {
-     "name": "MASK",
-     "type": "MASK",
-     "links": []
-    }
-   ],
-   "properties": {
-    "Node name for S&R": "LoadImage"
-   },
-   "widgets_values": [
-    "example.png",
-    "image"
-   ],
-   "widgets_values_named": {
-    "image": "clothing_light_blue_denim_shirt.png",
-    "upload": "image"
-   },
-   "title": "Reference image <image2> (clothing, hair, face, style...)"
-  },
-  {
    "id": 476,
    "type": "MarkdownNote",
    "pos": [
     140,
-    3690
+    3290
    ],
    "size": [
     420,
@@ -401,7 +359,7 @@
    "title": "Note: How to use",
    "properties": {},
    "widgets_values": [
-    "## Prompting tips for people edits\n\n- `<image1>` is the photo being edited; `<image2>` is the reference (garment, hairstyle, accessory, face, pose...).\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be specific: *\"loose shoulder-length waves, dark auburn\"* beats *\"new hair\"*.\n- One or two changes per run work best. For several changes, run again on the output.\n- Expressions: name the emotion and the physical cues (*\"soft closed-mouth smile, slightly raised cheeks, relaxed eyes\"*).\n\n## Settings worth changing\n\n- **steps**: 40 by default. 40-50 is the official setting for the finest detail; 25 is faster. Speed: about 50-60 s per edit at resolution 1024.\n- **refine_prompt** + **thinking**: turn both on to let the Qwen 3.5 prompt enhancer expand a short instruction. Better for vague prompts, adds ~40 s or more per run.\n- **seed**: re-run for variations; fix the seed to compare prompt wording.\n- **resolution**: 1024 resizes inputs to about 1 megapixel (the model's native size), keeping aspect ratio. 1536 or 2048 gives a larger output but is much slower. 0 keeps the original size: avoid this for phone photos (9+ MP), which can take many minutes and exceed the model's 2048x2048 limit.\n\n## Models (all local, in ComfyUI/models)\n\n- diffusion_models/qwen_image_2.1_bf16.safetensors\n- text_encoders/qwen3vl_8b_bf16.safetensors\n- text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors (prompt enhancer)\n- vae/qwen_image_2.1_vae_bf16.safetensors\n\nMissing? Extensions → *Download missing models to server*.\n"
+    "## Prompting tips for character edits\n\n- `<image1>` is the photo being edited.\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be specific: *\"loose shoulder-length waves, dark auburn\"* beats *\"new hair\"*.\n- One or two changes per run work best. For several changes, run again on the output.\n- Expressions: name the emotion and the physical cues (*\"soft closed-mouth smile, slightly raised cheeks, relaxed eyes\"*).\n\n## Settings worth changing\n\n- **steps**: 40 by default. 40-50 is the official setting for the finest detail; 25 is faster. Speed: about 50-60 s per edit at resolution 1024.\n- **refine_prompt** + **thinking**: turn both on to let the Qwen 3.5 prompt enhancer expand a short instruction. Better for vague prompts, adds ~40 s or more per run.\n- **seed**: re-run for variations; fix the seed to compare prompt wording.\n- **resolution**: 1024 resizes inputs to about 1 megapixel (the model's native size), keeping aspect ratio. 1536 or 2048 gives a larger output but is much slower. 0 keeps the original size: avoid this for phone photos (9+ MP), which can take many minutes and exceed the model's 2048x2048 limit.\n\n## Models (all local, in ComfyUI/models)\n\n- diffusion_models/qwen_image_2.1_bf16.safetensors\n- text_encoders/qwen3vl_8b_bf16.safetensors\n- text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors (prompt enhancer)\n- vae/qwen_image_2.1_vae_bf16.safetensors\n\nMissing? Extensions → *Download missing models to server*.\n"
    ],
    "widgets_values_named": {
     "text": "Guide: [Subgraph](https://docs.comfy.org/interface/features/subgraph)\n\n## Input Assets\n\n- [portrait_model_denim.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/portrait_model_denim.png)\n- [clothing_light_blue_denim_shirt.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/clothing_light_blue_denim_shirt.png)\n\n\n## Model Links\n\n- [Hugging Face:Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1)\n- [ModelScope:Comfy-Org/Qwen-Image-2.1](https://modelscope.cn/models/Comfy-Org/Qwen-Image-2.1)\n\n**diffusion_models**\n\n- [qwen_image_2.1_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_bf16.safetensors) (13.25 GB)\n- [qwen_image_2.1_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors) (6.76 GB)\n\n**text_encoders**\n\n- [qwen3vl_8b_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors) (16.33 GB)\n- [qwen3vl_8b_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors) (8.71 GB) \n- [qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors) (8.82 GB)\n\n**vae**\n\n- [qwen_image_2.1_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors) (644.2 MB)\n\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 diffusion_models/\n│   │   ├── qwen_image_2.1_bf16.safetensors\n│   │   └── qwen_image_2.1_int8_convrot.safetensors\n│   ├── 📂 text_encoders/\n│   │   ├── qwen3vl_8b_bf16.safetensors\n│   │   ├── qwen3vl_8b_int8_convrot.safetensors\n│   │   └── qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors│   └── 📂 vae/\n│       └── qwen_image_2.1_vae_bf16.safetensors\n```\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
@@ -414,7 +372,7 @@
    "type": "MarkdownNote",
    "pos": [
     1060,
-    3690
+    3290
    ],
    "size": [
     420,
@@ -447,14 +405,6 @@
    "IMAGE"
   ],
   [
-   728,
-   475,
-   0,
-   459,
-   10,
-   "IMAGE"
-  ],
-  [
    672,
    459,
    0,
@@ -477,7 +427,7 @@
     },
     "revision": 0,
     "config": {},
-    "name": "Qwen Image 2.1 Edit (main + reference)",
+    "name": "Qwen Image 2.1 Edit (1 image)",
     "inputNode": {
      "id": -10,
      "bounding": [

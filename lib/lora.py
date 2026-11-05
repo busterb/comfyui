@@ -1,4 +1,4 @@
-"""Train a character LoRA for Qwen Image 2.1 (the People Edit Turbo model) on a compute machine. Run through lora.sh.
+"""Train a character LoRA for Qwen Image 2.1 (the Character Edit Turbo model) on a compute machine. Run through lora.sh.
 
 Photos of a character go in ComfyUI/input/lora/NAME/ on this machine, each with an optional caption NAME.txt
 next to it (photo.jpg -> photo.txt). The compute machine runs ComfyUI's own training nodes; this script only

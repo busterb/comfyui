@@ -368,13 +368,13 @@
    ],
    "properties": {},
    "widgets_values": [
-    "people_edit_batch",
+    "character_edit_batch",
     "png",
     "8-bit",
     "sRGB"
    ],
    "widgets_values_named": {
-    "filename_prefix": "people_edit_turbo_single",
+    "filename_prefix": "character_edit_turbo_single",
     "format": "png",
     "format.bit_depth": "8-bit",
     "format.input_color_space": "sRGB"
@@ -480,7 +480,7 @@
    },
    "widgets_values": [
     "batch",
-    "people_edit_batch",
+    "character_edit_batch",
     0
    ]
   },
@@ -503,10 +503,10 @@
    "title": "Note: How to use",
    "properties": {},
    "widgets_values": [
-    "## Prompting tips for people edits\n\n- `<image1>` is the photo being edited.\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be specific: *\"loose shoulder-length waves, dark auburn\"* beats *\"new hair\"*.\n- One or two changes per run work best. For several changes, run again on the output.\n- Expressions: name the emotion and the physical cues (*\"soft closed-mouth smile, slightly raised cheeks, relaxed eyes\"*).\n\n## Settings worth changing\n\n- **Turbo**: distilled model on a fixed 8-step schedule (about 15 s per edit at resolution 1024, ~3.5x faster than the standard workflow). Slightly less fine texture in hair and fabric; use the standard workflow for final images.\n- **refine_prompt** + **thinking**: turn both on to let the Qwen 3.5 prompt enhancer expand a short instruction. Better for vague prompts, adds ~40 s or more per run.\n- **seed**: re-run for variations; fix the seed to compare prompt wording.\n- **resolution**: 1024 resizes inputs to about 1 megapixel (the model's native size), keeping aspect ratio. 1536 or 2048 gives a larger output but is much slower. 0 keeps the original size: avoid this for phone photos (9+ MP), which can take many minutes and exceed the model's 2048x2048 limit.\n\n## Models (all local, in ComfyUI/models)\n\n- diffusion_models/qwen_image_2.1_turbo_bf16.safetensors\n- text_encoders/qwen3vl_8b_bf16.safetensors\n- text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors (prompt enhancer)\n- vae/qwen_image_2.1_vae_bf16.safetensors\n\nMissing? Extensions → *Download missing models to server*.\n"
+    "## Prompting tips for character edits\n\n- `<image1>` is the photo being edited.\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be specific: *\"loose shoulder-length waves, dark auburn\"* beats *\"new hair\"*.\n- One or two changes per run work best. For several changes, run again on the output.\n- Expressions: name the emotion and the physical cues (*\"soft closed-mouth smile, slightly raised cheeks, relaxed eyes\"*).\n\n## Settings worth changing\n\n- **Turbo**: distilled model on a fixed 8-step schedule (about 15 s per edit at resolution 1024, ~3.5x faster than the standard workflow). Slightly less fine texture in hair and fabric; use the standard workflow for final images.\n- **refine_prompt** + **thinking**: turn both on to let the Qwen 3.5 prompt enhancer expand a short instruction. Better for vague prompts, adds ~40 s or more per run.\n- **seed**: re-run for variations; fix the seed to compare prompt wording.\n- **resolution**: 1024 resizes inputs to about 1 megapixel (the model's native size), keeping aspect ratio. 1536 or 2048 gives a larger output but is much slower. 0 keeps the original size: avoid this for phone photos (9+ MP), which can take many minutes and exceed the model's 2048x2048 limit.\n\n## Models (all local, in ComfyUI/models)\n\n- diffusion_models/qwen_image_2.1_turbo_bf16.safetensors\n- text_encoders/qwen3vl_8b_bf16.safetensors\n- text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors (prompt enhancer)\n- vae/qwen_image_2.1_vae_bf16.safetensors\n\nMissing? Extensions → *Download missing models to server*.\n"
    ],
    "widgets_values_named": {
-    "text": "## Prompting tips for people edits\n\n- `<image1>` is the photo being edited.\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be specific: *\"loose shoulder-length waves, dark auburn\"* beats *\"new hair\"*.\n- One or two changes per run work best. For several changes, run again on the output.\n- Expressions: name the emotion and the physical cues (*\"soft closed-mouth smile, slightly raised cheeks, relaxed eyes\"*).\n\n## Settings worth changing\n\n- **Turbo**: distilled model on a fixed 8-step schedule (about 15 s per edit at resolution 1024, ~3.5x faster than the standard workflow). Slightly less fine texture in hair and fabric; use the standard workflow for final images.\n- **refine_prompt** + **thinking**: turn both on to let the Qwen 3.5 prompt enhancer expand a short instruction. Better for vague prompts, adds ~40 s or more per run.\n- **seed**: re-run for variations; fix the seed to compare prompt wording.\n- **resolution**: 1024 resizes inputs to about 1 megapixel (the model's native size), keeping aspect ratio. 1536 or 2048 gives a larger output but is much slower. 0 keeps the original size: avoid this for phone photos (9+ MP), which can take many minutes and exceed the model's 2048x2048 limit.\n\n## Models (all local, in ComfyUI/models)\n\n- diffusion_models/qwen_image_2.1_turbo_bf16.safetensors\n- text_encoders/qwen3vl_8b_bf16.safetensors\n- text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors (prompt enhancer)\n- vae/qwen_image_2.1_vae_bf16.safetensors\n\nMissing? Extensions → *Download missing models to server*.\n"
+    "text": "## Prompting tips for character edits\n\n- `<image1>` is the photo being edited.\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be specific: *\"loose shoulder-length waves, dark auburn\"* beats *\"new hair\"*.\n- One or two changes per run work best. For several changes, run again on the output.\n- Expressions: name the emotion and the physical cues (*\"soft closed-mouth smile, slightly raised cheeks, relaxed eyes\"*).\n\n## Settings worth changing\n\n- **Turbo**: distilled model on a fixed 8-step schedule (about 15 s per edit at resolution 1024, ~3.5x faster than the standard workflow). Slightly less fine texture in hair and fabric; use the standard workflow for final images.\n- **refine_prompt** + **thinking**: turn both on to let the Qwen 3.5 prompt enhancer expand a short instruction. Better for vague prompts, adds ~40 s or more per run.\n- **seed**: re-run for variations; fix the seed to compare prompt wording.\n- **resolution**: 1024 resizes inputs to about 1 megapixel (the model's native size), keeping aspect ratio. 1536 or 2048 gives a larger output but is much slower. 0 keeps the original size: avoid this for phone photos (9+ MP), which can take many minutes and exceed the model's 2048x2048 limit.\n\n## Models (all local, in ComfyUI/models)\n\n- diffusion_models/qwen_image_2.1_turbo_bf16.safetensors\n- text_encoders/qwen3vl_8b_bf16.safetensors\n- text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors (prompt enhancer)\n- vae/qwen_image_2.1_vae_bf16.safetensors\n\nMissing? Extensions → *Download missing models to server*.\n"
    },
    "color": "#222",
    "bgcolor": "#000"

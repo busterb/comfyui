@@ -1,22 +1,22 @@
 {
- "id": "b6a1073b-2f0b-4ace-91c5-9ee7e0f1e85d",
+ "id": "13695946-cb79-4d52-9dcc-145b29fa51d5",
  "revision": 0,
- "last_node_id": 501,
- "last_link_id": 903,
+ "last_node_id": 508,
+ "last_link_id": 916,
  "nodes": [
   {
    "id": 459,
    "type": "bc1c967a-7f6a-4be9-a372-dad16e4f28e3",
    "pos": [
-    540,
-    2420
+    657,
+    2419.9458226107668
    ],
    "size": [
     420,
-    760
+    930
    ],
    "flags": {},
-   "order": 5,
+   "order": 4,
    "mode": 0,
    "inputs": [
     {
@@ -38,15 +38,6 @@
      "link": null
     },
     {
-     "label": "steps",
-     "name": "steps",
-     "type": "INT",
-     "widget": {
-      "name": "steps"
-     },
-     "link": null
-    },
-    {
      "label": "custom_size",
      "name": "switch",
      "type": "BOOLEAN",
@@ -61,15 +52,6 @@
      "type": "COMBO",
      "widget": {
       "name": "scheduler"
-     },
-     "link": null
-    },
-    {
-     "label": "scheduler",
-     "name": "scheduler_1",
-     "type": "COMBO",
-     "widget": {
-      "name": "scheduler_1"
      },
      "link": null
     },
@@ -111,7 +93,7 @@
      "name": "images.image_2",
      "shape": 7,
      "type": "IMAGE",
-     "link": null
+     "link": 916
     },
     {
      "label": "image_3",
@@ -184,20 +166,18 @@
    },
    "widgets_values": [
     1024,
-    "Change the expression of the person in <image1> to a soft, warm closed-mouth smile with slightly raised cheeks and relaxed eyes. Keep the face, identity, skin tone, hairstyle, pose, clothing, lighting and background unchanged.",
+    "Dress the person in <image1> in the shirt from <image2>: same light blue denim, collar, white buttons and chest pocket, worn buttoned. Keep the face, identity, skin tone, hair, pose, lighting and background of <image1> unchanged.",
     false,
     false,
     4096,
     "",
     1,
-    40,
     false,
     1024,
     1024,
     "euler",
-    "simple",
     891836227295375,
-    "qwen_image_2.1_bf16.safetensors",
+    "qwen_image_2.1_turbo_bf16.safetensors",
     "qwen3vl_8b_bf16.safetensors",
     "qwen_image_2.1_vae_bf16.safetensors",
     "auto",
@@ -206,41 +186,39 @@
    ],
    "widgets_values_named": {
     "resolution": 0,
-    "prompt": "Replace costumes for the character",
+    "prompt": "Relight the scene as a clear moonlit night: the sky seen through the oculus becomes a deep night sky with a bright full moon and a few stars, and the tree stays as a dark night silhouette. Soft blue-silver moonlight is now the only light source, casting a cool pale pool of light on the circular stone platform and a long soft shadow of the dancer. The concrete walls turn cool blue-grey with deep shadows, and the dancer's black dress catches a faint silver rim light. Keep her exact pose, the architecture, the framing and the tree position unchanged.",
     "switch_1": false,
     "thinking": false,
     "max_length": 4096,
     "negative_prompt": "",
     "cfg": 1,
-    "steps": 25,
     "switch": false,
     "width": 1024,
     "height": 1024,
     "scheduler": "euler",
-    "scheduler_1": "simple",
     "seed": 891836227295375,
-    "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+    "unet_name": "qwen_image_2.1_turbo_int8_convrot.safetensors",
     "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
     "vae_name": "qwen_image_2.1_vae_bf16.safetensors",
     "device": "auto",
     "dtype": "default",
     "clip_name_1": "qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors"
    },
-   "title": "Edit (Qwen Image 2.1)"
+   "title": "Turbo Edit (Qwen Image 2.1)"
   },
   {
    "id": 461,
    "type": "SaveImageAdvanced",
    "pos": [
-    1010,
-    2420
+    1127,
+    2419.9458226107668
    ],
    "size": [
     710,
     760
    ],
    "flags": {},
-   "order": 6,
+   "order": 5,
    "mode": 0,
    "showAdvanced": true,
    "inputs": [
@@ -259,7 +237,7 @@
    ],
    "properties": {},
    "widgets_values": [
-    "people_edit_standard_single",
+    "character_edit_turbo_reference",
     "png",
     "8-bit",
     "sRGB"
@@ -276,7 +254,7 @@
    "type": "MarkdownNote",
    "pos": [
     600,
-    3290
+    3689.9458226107668
    ],
    "size": [
     420,
@@ -303,10 +281,10 @@
    "type": "LoadImage",
    "pos": [
     140,
-    2420
+    2419.9458226107668
    ],
    "size": [
-    350,
+    467,
     550
    ],
    "flags": {},
@@ -335,7 +313,7 @@
     "image"
    ],
    "widgets_values_named": {
-    "image": "portrait_model_denim.png",
+    "image": "ballet_dancer_photography_minimalist_architecture.png",
     "upload": "image"
    },
    "title": "Main image <image1> (edited)"
@@ -345,24 +323,24 @@
    "type": "MarkdownNote",
    "pos": [
     140,
-    3290
+    3689.9458226107668
    ],
    "size": [
     420,
     620
    ],
    "flags": {},
-   "order": 3,
+   "order": 2,
    "mode": 0,
    "inputs": [],
    "outputs": [],
    "title": "Note: How to use",
    "properties": {},
    "widgets_values": [
-    "## Prompting tips for people edits\n\n- `<image1>` is the photo being edited.\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be specific: *\"loose shoulder-length waves, dark auburn\"* beats *\"new hair\"*.\n- One or two changes per run work best. For several changes, run again on the output.\n- Expressions: name the emotion and the physical cues (*\"soft closed-mouth smile, slightly raised cheeks, relaxed eyes\"*).\n\n## Settings worth changing\n\n- **steps**: 40 by default. 40-50 is the official setting for the finest detail; 25 is faster. Speed: about 50-60 s per edit at resolution 1024.\n- **refine_prompt** + **thinking**: turn both on to let the Qwen 3.5 prompt enhancer expand a short instruction. Better for vague prompts, adds ~40 s or more per run.\n- **seed**: re-run for variations; fix the seed to compare prompt wording.\n- **resolution**: 1024 resizes inputs to about 1 megapixel (the model's native size), keeping aspect ratio. 1536 or 2048 gives a larger output but is much slower. 0 keeps the original size: avoid this for phone photos (9+ MP), which can take many minutes and exceed the model's 2048x2048 limit.\n\n## Models (all local, in ComfyUI/models)\n\n- diffusion_models/qwen_image_2.1_bf16.safetensors\n- text_encoders/qwen3vl_8b_bf16.safetensors\n- text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors (prompt enhancer)\n- vae/qwen_image_2.1_vae_bf16.safetensors\n\nMissing? Extensions → *Download missing models to server*.\n"
+    "## Prompting tips for character edits\n\n- `<image1>` is the photo being edited; `<image2>` is the reference (garment, hairstyle, accessory, face, pose...).\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be specific: *\"loose shoulder-length waves, dark auburn\"* beats *\"new hair\"*.\n- One or two changes per run work best. For several changes, run again on the output.\n- Expressions: name the emotion and the physical cues (*\"soft closed-mouth smile, slightly raised cheeks, relaxed eyes\"*).\n\n## Settings worth changing\n\n- **Turbo**: distilled model on a fixed 8-step schedule (about 15 s per edit at resolution 1024, ~3.5x faster than the standard workflow). Slightly less fine texture in hair and fabric; use the standard workflow for final images.\n- **refine_prompt** + **thinking**: turn both on to let the Qwen 3.5 prompt enhancer expand a short instruction. Better for vague prompts, adds ~40 s or more per run.\n- **seed**: re-run for variations; fix the seed to compare prompt wording.\n- **resolution**: 1024 resizes inputs to about 1 megapixel (the model's native size), keeping aspect ratio. 1536 or 2048 gives a larger output but is much slower. 0 keeps the original size: avoid this for phone photos (9+ MP), which can take many minutes and exceed the model's 2048x2048 limit.\n\n## Models (all local, in ComfyUI/models)\n\n- diffusion_models/qwen_image_2.1_turbo_bf16.safetensors\n- text_encoders/qwen3vl_8b_bf16.safetensors\n- text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors (prompt enhancer)\n- vae/qwen_image_2.1_vae_bf16.safetensors\n\nMissing? Extensions → *Download missing models to server*.\n"
    ],
    "widgets_values_named": {
-    "text": "Guide: [Subgraph](https://docs.comfy.org/interface/features/subgraph)\n\n## Input Assets\n\n- [portrait_model_denim.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/portrait_model_denim.png)\n- [clothing_light_blue_denim_shirt.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/clothing_light_blue_denim_shirt.png)\n\n\n## Model Links\n\n- [Hugging Face:Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1)\n- [ModelScope:Comfy-Org/Qwen-Image-2.1](https://modelscope.cn/models/Comfy-Org/Qwen-Image-2.1)\n\n**diffusion_models**\n\n- [qwen_image_2.1_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_bf16.safetensors) (13.25 GB)\n- [qwen_image_2.1_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_int8_convrot.safetensors) (6.76 GB)\n\n**text_encoders**\n\n- [qwen3vl_8b_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors) (16.33 GB)\n- [qwen3vl_8b_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors) (8.71 GB) \n- [qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors) (8.82 GB)\n\n**vae**\n\n- [qwen_image_2.1_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors) (644.2 MB)\n\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 diffusion_models/\n│   │   ├── qwen_image_2.1_bf16.safetensors\n│   │   └── qwen_image_2.1_int8_convrot.safetensors\n│   ├── 📂 text_encoders/\n│   │   ├── qwen3vl_8b_bf16.safetensors\n│   │   ├── qwen3vl_8b_int8_convrot.safetensors\n│   │   └── qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors│   └── 📂 vae/\n│       └── qwen_image_2.1_vae_bf16.safetensors\n```\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
+    "text": "Guide: [Subgraph](https://docs.comfy.org/interface/features/subgraph)\n\n## Input Asset\n\n- [ballet_dancer_photography_minimalist_architecture.png](https://raw.githubusercontent.com/Comfy-Org/workflow_templates/refs/heads/main/input/ballet_dancer_photography_minimalist_architecture.png)\n\n## Model Links\n\n- [Hugging Face:Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1)\n- [ModelScope:Comfy-Org/Qwen-Image-2.1](https://modelscope.cn/models/Comfy-Org/Qwen-Image-2.1)\n\n**diffusion_models**\n\n- [qwen_image_2.1_turbo_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_bf16.safetensors) (13.25 GB)\n- [qwen_image_2.1_turbo_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_int8_convrot.safetensors) (6.76 GB)\n\n**text_encoders**\n\n- [qwen3vl_8b_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors) (16.33 GB)\n- [qwen3vl_8b_int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors) (8.71 GB) \n- [qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors) (8.82 GB)\n\n**vae**\n\n- [qwen_image_2.1_vae_bf16.safetensors](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors) (644.2 MB)\n\n\n## Model Storage Location\n\n```\n📂 ComfyUI/\n├── 📂 models/\n│   ├── 📂 diffusion_models/\n│   │   ├── qwen_image_2.1_turbo_bf16.safetensors\n│   │   └── qwen_image_2.1_turbo_int8_convrot.safetensors\n│   ├── 📂 text_encoders/\n│   │   ├── qwen3vl_8b_bf16.safetensors\n│   │   ├── qwen3vl_8b_int8_convrot.safetensors\n│   │   └── qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors│   └── 📂 vae/\n│       └── qwen_image_2.1_vae_bf16.safetensors\n```\n\n## Report Issue\n\nNote: Please update ComfyUI first ([guide](https://docs.comfy.org/installation/update_comfyui)) and prepare required models. Desktop/Cloud updates follow stable releases, so some nightly-supported models may not be available yet.\n\n- Cannot run / runtime errors: [ComfyUI/issues](https://github.com/comfyanonymous/ComfyUI/issues)\n- UI / frontend issues: [ComfyUI_frontend/issues](https://github.com/Comfy-Org/ComfyUI_frontend/issues)\n- Workflow issues: [workflow_templates/issues](https://github.com/Comfy-Org/workflow_templates/issues)\n"
    },
    "color": "#222",
    "bgcolor": "#000"
@@ -372,14 +350,14 @@
    "type": "MarkdownNote",
    "pos": [
     1060,
-    3290
+    3689.9458226107668
    ],
    "size": [
     420,
     480
    ],
    "flags": {},
-   "order": 4,
+   "order": 3,
    "mode": 0,
    "inputs": [],
    "outputs": [],
@@ -393,6 +371,48 @@
    },
    "color": "#222",
    "bgcolor": "#000"
+  },
+  {
+   "id": 508,
+   "type": "LoadImage",
+   "pos": [
+    140,
+    3029.9458226107668
+   ],
+   "size": [
+    467,
+    550
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "IMAGE",
+     "type": "IMAGE",
+     "links": [
+      916
+     ]
+    },
+    {
+     "name": "MASK",
+     "type": "MASK",
+     "links": []
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "LoadImage"
+   },
+   "widgets_values": [
+    "example.png",
+    "image"
+   ],
+   "widgets_values_named": {
+    "image": "ballet_dancer_photography_minimalist_architecture.png",
+    "upload": "image"
+   },
+   "title": "Reference image <image2> (clothing, hair, face, style...)"
   }
  ],
  "links": [
@@ -401,7 +421,7 @@
    470,
    0,
    459,
-   9,
+   7,
    "IMAGE"
   ],
   [
@@ -410,6 +430,14 @@
    0,
    461,
    0,
+   "IMAGE"
+  ],
+  [
+   916,
+   508,
+   0,
+   459,
+   8,
    "IMAGE"
   ]
  ],
@@ -421,20 +449,20 @@
     "version": 1,
     "state": {
      "lastGroupId": 38,
-     "lastNodeId": 501,
-     "lastLinkId": 903,
+     "lastNodeId": 507,
+     "lastLinkId": 915,
      "lastRerouteId": 9
     },
     "revision": 0,
     "config": {},
-    "name": "Qwen Image 2.1 Edit (1 image)",
+    "name": "Qwen Image 2.1 Turbo Edit (main + reference)",
     "inputNode": {
      "id": -10,
      "bounding": [
       -720,
       630,
       143.044921875,
-      648
+      608
      ]
     },
     "outputNode": {
@@ -528,24 +556,11 @@
       "name": "cfg",
       "type": "FLOAT",
       "linkIds": [
-       658
+       911
       ],
       "pos": [
        -600.955078125,
        774
-      ]
-     },
-     {
-      "id": "349c3f72-ba7a-4277-84ff-8029faa16019",
-      "name": "steps",
-      "type": "INT",
-      "linkIds": [
-       659
-      ],
-      "label": "steps",
-      "pos": [
-       -600.955078125,
-       794
       ]
      },
      {
@@ -558,7 +573,7 @@
       "label": "custom_size",
       "pos": [
        -600.955078125,
-       814
+       794
       ]
      },
      {
@@ -571,7 +586,7 @@
       "localized_name": "width",
       "pos": [
        -600.955078125,
-       834
+       814
       ]
      },
      {
@@ -584,7 +599,7 @@
       "localized_name": "height",
       "pos": [
        -600.955078125,
-       854
+       834
       ]
      },
      {
@@ -592,25 +607,12 @@
       "name": "scheduler",
       "type": "COMBO",
       "linkIds": [
-       662
+       915
       ],
       "label": "sampler",
       "pos": [
        -600.955078125,
-       874
-      ]
-     },
-     {
-      "id": "4710583f-3cb0-4091-87ab-dadd8a2e657c",
-      "name": "scheduler_1",
-      "type": "COMBO",
-      "linkIds": [
-       668
-      ],
-      "label": "scheduler",
-      "pos": [
-       -600.955078125,
-       894
+       854
       ]
      },
      {
@@ -618,12 +620,12 @@
       "name": "seed",
       "type": "INT",
       "linkIds": [
-       667,
-       804
+       804,
+       914
       ],
       "pos": [
        -600.955078125,
-       914
+       874
       ]
      },
      {
@@ -635,7 +637,7 @@
       ],
       "pos": [
        -600.955078125,
-       934
+       894
       ]
      },
      {
@@ -647,7 +649,7 @@
       ],
       "pos": [
        -600.955078125,
-       954
+       914
       ]
      },
      {
@@ -659,7 +661,7 @@
       ],
       "pos": [
        -600.955078125,
-       974
+       934
       ]
      },
      {
@@ -672,7 +674,7 @@
       "label": "cache_device",
       "pos": [
        -600.955078125,
-       994
+       954
       ]
      },
      {
@@ -685,7 +687,7 @@
       "label": "dtype",
       "pos": [
        -600.955078125,
-       1014
+       974
       ]
      },
      {
@@ -698,7 +700,7 @@
       "label": "PE_model",
       "pos": [
        -600.955078125,
-       1034
+       994
       ]
      },
      {
@@ -712,7 +714,7 @@
       "label": "image_1",
       "pos": [
        -600.955078125,
-       1054
+       1014
       ]
      },
      {
@@ -726,7 +728,7 @@
       "label": "image_2",
       "pos": [
        -600.955078125,
-       1074
+       1034
       ]
      },
      {
@@ -740,7 +742,7 @@
       "label": "image_3",
       "pos": [
        -600.955078125,
-       1094
+       1054
       ]
      },
      {
@@ -754,7 +756,7 @@
       "label": "image_4",
       "pos": [
        -600.955078125,
-       1114
+       1074
       ]
      },
      {
@@ -768,7 +770,7 @@
       "label": "image_5",
       "pos": [
        -600.955078125,
-       1134
+       1094
       ]
      },
      {
@@ -782,7 +784,7 @@
       "label": "image_6",
       "pos": [
        -600.955078125,
-       1154
+       1114
       ]
      },
      {
@@ -796,7 +798,7 @@
       "label": "image_7",
       "pos": [
        -600.955078125,
-       1174
+       1134
       ]
      },
      {
@@ -810,7 +812,7 @@
       "label": "image_8",
       "pos": [
        -600.955078125,
-       1194
+       1154
       ]
      },
      {
@@ -824,7 +826,7 @@
       "label": "image_9",
       "pos": [
        -600.955078125,
-       1214
+       1174
       ]
      },
      {
@@ -838,7 +840,7 @@
       "label": "image_10",
       "pos": [
        -600.955078125,
-       1234
+       1194
       ]
      }
     ],
@@ -871,7 +873,7 @@
        90
       ],
       "flags": {},
-      "order": 1,
+      "order": 2,
       "mode": 0,
       "inputs": [
        {
@@ -898,18 +900,18 @@
        "Node name for S&R": "UNETLoader",
        "models": [
         {
-         "name": "qwen_image_2.1_bf16.safetensors",
-         "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_bf16.safetensors",
+         "name": "qwen_image_2.1_turbo_bf16.safetensors",
+         "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_bf16.safetensors",
          "directory": "diffusion_models"
         }
        ]
       },
       "widgets_values": [
-       "qwen_image_2.1_bf16.safetensors",
+       "qwen_image_2.1_turbo_bf16.safetensors",
        "default"
       ],
       "widgets_values_named": {
-       "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+       "unet_name": "qwen_image_2.1_turbo_int8_convrot.safetensors",
        "weight_dtype": "default"
       }
      },
@@ -925,7 +927,7 @@
        120
       ],
       "flags": {},
-      "order": 2,
+      "order": 3,
       "mode": 0,
       "inputs": [
        {
@@ -981,7 +983,7 @@
        70
       ],
       "flags": {},
-      "order": 3,
+      "order": 4,
       "mode": 0,
       "inputs": [
        {
@@ -1034,7 +1036,7 @@
        120
       ],
       "flags": {},
-      "order": 4,
+      "order": 5,
       "mode": 0,
       "inputs": [
        {
@@ -1092,14 +1094,14 @@
        60
       ],
       "flags": {},
-      "order": 5,
+      "order": 6,
       "mode": 0,
       "inputs": [
        {
         "localized_name": "samples",
         "name": "samples",
         "type": "LATENT",
-        "link": 651
+        "link": 907
        },
        {
         "localized_name": "vae",
@@ -1123,128 +1125,11 @@
       }
      },
      {
-      "id": 458,
-      "type": "KSampler",
-      "pos": [
-       1180,
-       640
-      ],
-      "size": [
-       270,
-       270
-      ],
-      "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-       {
-        "localized_name": "model",
-        "name": "model",
-        "type": "MODEL",
-        "link": 689
-       },
-       {
-        "localized_name": "positive",
-        "name": "positive",
-        "type": "CONDITIONING",
-        "link": 722
-       },
-       {
-        "localized_name": "negative",
-        "name": "negative",
-        "type": "CONDITIONING",
-        "link": 723
-       },
-       {
-        "localized_name": "latent_image",
-        "name": "latent_image",
-        "type": "LATENT",
-        "link": 682
-       },
-       {
-        "localized_name": "seed",
-        "name": "seed",
-        "type": "INT",
-        "widget": {
-         "name": "seed"
-        },
-        "link": 667
-       },
-       {
-        "localized_name": "steps",
-        "name": "steps",
-        "type": "INT",
-        "widget": {
-         "name": "steps"
-        },
-        "link": 659
-       },
-       {
-        "localized_name": "cfg",
-        "name": "cfg",
-        "type": "FLOAT",
-        "widget": {
-         "name": "cfg"
-        },
-        "link": 658
-       },
-       {
-        "localized_name": "sampler_name",
-        "name": "sampler_name",
-        "type": "COMBO",
-        "widget": {
-         "name": "sampler_name"
-        },
-        "link": 662
-       },
-       {
-        "localized_name": "scheduler",
-        "name": "scheduler",
-        "type": "COMBO",
-        "widget": {
-         "name": "scheduler"
-        },
-        "link": 668
-       }
-      ],
-      "outputs": [
-       {
-        "localized_name": "LATENT",
-        "name": "LATENT",
-        "type": "LATENT",
-        "links": [
-         651
-        ]
-       }
-      ],
-      "properties": {
-       "Node name for S&R": "KSampler"
-      },
-      "widgets_values": [
-       0,
-       "randomize",
-       25,
-       1,
-       "euler",
-       "simple",
-       1
-      ],
-      "widgets_values_named": {
-       "seed": 0,
-       "control_after_generate": "randomize",
-       "steps": 25,
-       "cfg": 1,
-       "sampler_name": "euler",
-       "scheduler": "simple",
-       "denoise": 1
-      }
-     },
-     {
       "id": 468,
       "type": "ComfySwitchNode",
       "pos": [
-       570,
-       1040
+       479.85314513256685,
+       1015.0153766097112
       ],
       "size": [
        270,
@@ -1284,7 +1169,7 @@
         "name": "output",
         "type": "LATENT",
         "links": [
-         682
+         913
         ]
        }
       ],
@@ -1302,8 +1187,8 @@
       "id": 469,
       "type": "QwenImage21Cache",
       "pos": [
-       1180,
-       460
+       955.4012707927922,
+       398.1717177666044
       ],
       "size": [
        270,
@@ -1344,7 +1229,7 @@
         "name": "MODEL",
         "type": "MODEL",
         "links": [
-         689
+         908
         ]
        }
       ],
@@ -1364,12 +1249,12 @@
       "id": 474,
       "type": "TextEncodeQwenImage21",
       "pos": [
-       500,
-       430
+       419.68682172750084,
+       430.45130327289627
       ],
       "size": [
-       460,
-       520
+       375.2628583088489,
+       446
       ],
       "flags": {},
       "order": 9,
@@ -1430,34 +1315,6 @@
         "link": null
        },
        {
-        "localized_name": "image_7",
-        "name": "images.image_7",
-        "shape": 7,
-        "type": "IMAGE",
-        "link": 716
-       },
-       {
-        "localized_name": "image_8",
-        "name": "images.image_8",
-        "shape": 7,
-        "type": "IMAGE",
-        "link": 717
-       },
-       {
-        "localized_name": "image_9",
-        "name": "images.image_9",
-        "shape": 7,
-        "type": "IMAGE",
-        "link": 718
-       },
-       {
-        "localized_name": "image_10",
-        "name": "images.image_10",
-        "shape": 7,
-        "type": "IMAGE",
-        "link": 719
-       },
-       {
         "localized_name": "image_11",
         "name": "images.image_11",
         "shape": 7,
@@ -1498,6 +1355,34 @@
         "shape": 7,
         "type": "IMAGE",
         "link": 715
+       },
+       {
+        "localized_name": "image_7",
+        "name": "images.image_7",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 716
+       },
+       {
+        "localized_name": "image_8",
+        "name": "images.image_8",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 717
+       },
+       {
+        "localized_name": "image_9",
+        "name": "images.image_9",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 718
+       },
+       {
+        "localized_name": "image_10",
+        "name": "images.image_10",
+        "shape": 7,
+        "type": "IMAGE",
+        "link": 719
        }
       ],
       "outputs": [
@@ -1506,7 +1391,7 @@
         "name": "positive",
         "type": "CONDITIONING",
         "links": [
-         722
+         909
         ]
        },
        {
@@ -1514,7 +1399,7 @@
         "name": "negative",
         "type": "CONDITIONING",
         "links": [
-         723
+         910
         ]
        },
        {
@@ -1979,6 +1864,266 @@
        "use_default_template": true,
        "mtp": "auto"
       }
+     },
+     {
+      "id": 502,
+      "type": "ManualSigmas",
+      "pos": [
+       965.7365870616367,
+       1053.9252521551643
+      ],
+      "size": [
+       418.9732421875,
+       58
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+       {
+        "localized_name": "SIGMAS",
+        "name": "SIGMAS",
+        "type": "SIGMAS",
+        "links": [
+         906
+        ]
+       }
+      ],
+      "title": "Manual Sigmas (Qwen-Image-2.1-Turbo 8-step schedule)",
+      "properties": {
+       "Node name for S&R": "ManualSigmas"
+      },
+      "widgets_values": [
+       "1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0"
+      ],
+      "widgets_values_named": {
+       "sigmas": "1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0"
+      }
+     },
+     {
+      "id": 503,
+      "type": "KSamplerSelect",
+      "pos": [
+       956.9532525294051,
+       907.865461371432
+      ],
+      "size": [
+       270,
+       58
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "sampler_name",
+        "name": "sampler_name",
+        "type": "COMBO",
+        "widget": {
+         "name": "sampler_name"
+        },
+        "link": 915
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "SAMPLER",
+        "name": "SAMPLER",
+        "type": "SAMPLER",
+        "links": [
+         905
+        ]
+       }
+      ],
+      "title": "KSampler Select (euler)",
+      "properties": {
+       "Node name for S&R": "KSamplerSelect"
+      },
+      "widgets_values": [
+       "euler"
+      ],
+      "widgets_values_named": {
+       "sampler_name": "euler"
+      }
+     },
+     {
+      "id": 504,
+      "type": "RandomNoise",
+      "pos": [
+       956.9532525294051,
+       571.865461371432
+      ],
+      "size": [
+       270,
+       82
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "noise_seed",
+        "name": "noise_seed",
+        "type": "INT",
+        "widget": {
+         "name": "noise_seed"
+        },
+        "link": 914
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "NOISE",
+        "name": "NOISE",
+        "type": "NOISE",
+        "links": [
+         904
+        ]
+       }
+      ],
+      "title": "Random Noise",
+      "properties": {
+       "Node name for S&R": "RandomNoise"
+      },
+      "widgets_values": [
+       424242,
+       "randomize"
+      ],
+      "widgets_values_named": {
+       "noise_seed": 424242,
+       "control_after_generate": "randomize"
+      }
+     },
+     {
+      "id": 505,
+      "type": "SamplerCustomAdvanced",
+      "pos": [
+       1284.3410123920985,
+       595.4249474282406
+      ],
+      "size": [
+       220.2388671875,
+       106
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "noise",
+        "name": "noise",
+        "type": "NOISE",
+        "link": 904
+       },
+       {
+        "localized_name": "guider",
+        "name": "guider",
+        "type": "GUIDER",
+        "link": 912
+       },
+       {
+        "localized_name": "sampler",
+        "name": "sampler",
+        "type": "SAMPLER",
+        "link": 905
+       },
+       {
+        "localized_name": "sigmas",
+        "name": "sigmas",
+        "type": "SIGMAS",
+        "link": 906
+       },
+       {
+        "localized_name": "latent_image",
+        "name": "latent_image",
+        "type": "LATENT",
+        "link": 913
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "output",
+        "name": "output",
+        "type": "LATENT",
+        "links": [
+         907
+        ]
+       },
+       {
+        "localized_name": "denoised_output",
+        "name": "denoised_output",
+        "type": "LATENT",
+        "links": []
+       }
+      ],
+      "title": "Sampler Custom Advanced",
+      "properties": {
+       "Node name for S&R": "SamplerCustomAdvanced"
+      }
+     },
+     {
+      "id": 507,
+      "type": "CFGGuider",
+      "pos": [
+       956.9532525294051,
+       731.865461371432
+      ],
+      "size": [
+       270,
+       98
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "MODEL",
+        "link": 908
+       },
+       {
+        "localized_name": "positive",
+        "name": "positive",
+        "type": "CONDITIONING",
+        "link": 909
+       },
+       {
+        "localized_name": "negative",
+        "name": "negative",
+        "type": "CONDITIONING",
+        "link": 910
+       },
+       {
+        "localized_name": "cfg",
+        "name": "cfg",
+        "type": "FLOAT",
+        "widget": {
+         "name": "cfg"
+        },
+        "link": 911
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "GUIDER",
+        "name": "GUIDER",
+        "type": "GUIDER",
+        "links": [
+         912
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "CFGGuider"
+      },
+      "widgets_values": [
+       8
+      ],
+      "widgets_values_named": {
+       "cfg": 8
+      }
      }
     ],
     "groups": [
@@ -2012,8 +2157,8 @@
       "bounding": [
        360,
        300,
-       700,
-       860
+       530.8552941790844,
+       871.7338850953031
       ],
       "color": "#3f789e",
       "flags": {}
@@ -2022,10 +2167,10 @@
       "id": 37,
       "title": "Sampling",
       "bounding": [
-       1090,
-       300,
-       470,
-       860
+       924.1133558908087,
+       299.72738075964855,
+       633.5751735791238,
+       874.5578559968081
       ],
       "color": "#3f789e",
       "flags": {}
@@ -2061,22 +2206,6 @@
       "type": "IMAGE"
      },
      {
-      "id": 651,
-      "origin_id": 458,
-      "origin_slot": 0,
-      "target_id": 457,
-      "target_slot": 0,
-      "type": "LATENT"
-     },
-     {
-      "id": 682,
-      "origin_id": 468,
-      "origin_slot": 0,
-      "target_id": 458,
-      "target_slot": 3,
-      "type": "LATENT"
-     },
-     {
       "id": 684,
       "origin_id": 456,
       "origin_slot": 0,
@@ -2091,30 +2220,6 @@
       "target_id": 469,
       "target_slot": 0,
       "type": "MODEL"
-     },
-     {
-      "id": 689,
-      "origin_id": 469,
-      "origin_slot": 0,
-      "target_id": 458,
-      "target_slot": 0,
-      "type": "MODEL"
-     },
-     {
-      "id": 722,
-      "origin_id": 474,
-      "origin_slot": 0,
-      "target_id": 458,
-      "target_slot": 1,
-      "type": "CONDITIONING"
-     },
-     {
-      "id": 723,
-      "origin_id": 474,
-      "origin_slot": 1,
-      "target_id": 458,
-      "target_slot": 2,
-      "type": "CONDITIONING"
      },
      {
       "id": 724,
@@ -2157,25 +2262,89 @@
       "type": "BOOLEAN"
      },
      {
-      "id": 658,
+      "id": 904,
+      "origin_id": 504,
+      "origin_slot": 0,
+      "target_id": 505,
+      "target_slot": 0,
+      "type": "NOISE"
+     },
+     {
+      "id": 905,
+      "origin_id": 503,
+      "origin_slot": 0,
+      "target_id": 505,
+      "target_slot": 2,
+      "type": "SAMPLER"
+     },
+     {
+      "id": 906,
+      "origin_id": 502,
+      "origin_slot": 0,
+      "target_id": 505,
+      "target_slot": 3,
+      "type": "SIGMAS"
+     },
+     {
+      "id": 907,
+      "origin_id": 505,
+      "origin_slot": 0,
+      "target_id": 457,
+      "target_slot": 0,
+      "type": "LATENT"
+     },
+     {
+      "id": 908,
+      "origin_id": 469,
+      "origin_slot": 0,
+      "target_id": 507,
+      "target_slot": 0,
+      "type": "MODEL"
+     },
+     {
+      "id": 909,
+      "origin_id": 474,
+      "origin_slot": 0,
+      "target_id": 507,
+      "target_slot": 1,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 910,
+      "origin_id": 474,
+      "origin_slot": 1,
+      "target_id": 507,
+      "target_slot": 2,
+      "type": "CONDITIONING"
+     },
+     {
+      "id": 911,
       "origin_id": -10,
       "origin_slot": 6,
-      "target_id": 458,
-      "target_slot": 6,
+      "target_id": 507,
+      "target_slot": 3,
       "type": "FLOAT"
      },
      {
-      "id": 659,
-      "origin_id": -10,
-      "origin_slot": 7,
-      "target_id": 458,
-      "target_slot": 5,
-      "type": "INT"
+      "id": 912,
+      "origin_id": 507,
+      "origin_slot": 0,
+      "target_id": 505,
+      "target_slot": 1,
+      "type": "GUIDER"
+     },
+     {
+      "id": 913,
+      "origin_id": 468,
+      "origin_slot": 0,
+      "target_id": 505,
+      "target_slot": 4,
+      "type": "LATENT"
      },
      {
       "id": 703,
       "origin_id": -10,
-      "origin_slot": 8,
+      "origin_slot": 7,
       "target_id": 468,
       "target_slot": 2,
       "type": "BOOLEAN"
@@ -2183,7 +2352,7 @@
      {
       "id": 660,
       "origin_id": -10,
-      "origin_slot": 9,
+      "origin_slot": 8,
       "target_id": 456,
       "target_slot": 0,
       "type": "INT"
@@ -2191,39 +2360,31 @@
      {
       "id": 661,
       "origin_id": -10,
-      "origin_slot": 10,
+      "origin_slot": 9,
       "target_id": 456,
       "target_slot": 1,
       "type": "INT"
      },
      {
-      "id": 662,
+      "id": 915,
+      "origin_id": -10,
+      "origin_slot": 10,
+      "target_id": 503,
+      "target_slot": 0,
+      "type": "COMBO"
+     },
+     {
+      "id": 914,
       "origin_id": -10,
       "origin_slot": 11,
-      "target_id": 458,
-      "target_slot": 7,
-      "type": "COMBO"
-     },
-     {
-      "id": 668,
-      "origin_id": -10,
-      "origin_slot": 12,
-      "target_id": 458,
-      "target_slot": 8,
-      "type": "COMBO"
-     },
-     {
-      "id": 667,
-      "origin_id": -10,
-      "origin_slot": 13,
-      "target_id": 458,
-      "target_slot": 4,
+      "target_id": 504,
+      "target_slot": 0,
       "type": "INT"
      },
      {
       "id": 663,
       "origin_id": -10,
-      "origin_slot": 14,
+      "origin_slot": 12,
       "target_id": 451,
       "target_slot": 0,
       "type": "COMBO"
@@ -2231,7 +2392,7 @@
      {
       "id": 664,
       "origin_id": -10,
-      "origin_slot": 15,
+      "origin_slot": 13,
       "target_id": 453,
       "target_slot": 0,
       "type": "COMBO"
@@ -2239,7 +2400,7 @@
      {
       "id": 665,
       "origin_id": -10,
-      "origin_slot": 16,
+      "origin_slot": 14,
       "target_id": 454,
       "target_slot": 0,
       "type": "COMBO"
@@ -2247,7 +2408,7 @@
      {
       "id": 729,
       "origin_id": -10,
-      "origin_slot": 17,
+      "origin_slot": 15,
       "target_id": 469,
       "target_slot": 1,
       "type": "COMBO"
@@ -2255,7 +2416,7 @@
      {
       "id": 730,
       "origin_id": -10,
-      "origin_slot": 18,
+      "origin_slot": 16,
       "target_id": 469,
       "target_slot": 2,
       "type": "COMBO"
@@ -2263,7 +2424,7 @@
      {
       "id": 746,
       "origin_id": -10,
-      "origin_slot": 19,
+      "origin_slot": 17,
       "target_id": 477,
       "target_slot": 0,
       "type": "COMBO"
@@ -2279,7 +2440,7 @@
      {
       "id": 710,
       "origin_id": -10,
-      "origin_slot": 20,
+      "origin_slot": 18,
       "target_id": 474,
       "target_slot": 1,
       "type": "IMAGE"
@@ -2317,73 +2478,73 @@
       "type": "INT"
      },
      {
-      "id": 716,
+      "id": 711,
       "origin_id": -10,
-      "origin_slot": 26,
-      "target_id": 474,
-      "target_slot": 7,
-      "type": "IMAGE"
-     },
-     {
-      "id": 717,
-      "origin_id": -10,
-      "origin_slot": 27,
+      "origin_slot": 19,
       "target_id": 474,
       "target_slot": 8,
       "type": "IMAGE"
      },
      {
-      "id": 718,
+      "id": 712,
       "origin_id": -10,
-      "origin_slot": 28,
+      "origin_slot": 20,
       "target_id": 474,
       "target_slot": 9,
       "type": "IMAGE"
      },
      {
-      "id": 719,
+      "id": 713,
       "origin_id": -10,
-      "origin_slot": 29,
+      "origin_slot": 21,
       "target_id": 474,
       "target_slot": 10,
       "type": "IMAGE"
      },
      {
-      "id": 711,
-      "origin_id": -10,
-      "origin_slot": 21,
-      "target_id": 474,
-      "target_slot": 12,
-      "type": "IMAGE"
-     },
-     {
-      "id": 712,
+      "id": 714,
       "origin_id": -10,
       "origin_slot": 22,
       "target_id": 474,
-      "target_slot": 13,
-      "type": "IMAGE"
-     },
-     {
-      "id": 713,
-      "origin_id": -10,
-      "origin_slot": 23,
-      "target_id": 474,
-      "target_slot": 14,
-      "type": "IMAGE"
-     },
-     {
-      "id": 714,
-      "origin_id": -10,
-      "origin_slot": 24,
-      "target_id": 474,
-      "target_slot": 15,
+      "target_slot": 11,
       "type": "IMAGE"
      },
      {
       "id": 715,
       "origin_id": -10,
+      "origin_slot": 23,
+      "target_id": 474,
+      "target_slot": 12,
+      "type": "IMAGE"
+     },
+     {
+      "id": 716,
+      "origin_id": -10,
+      "origin_slot": 24,
+      "target_id": 474,
+      "target_slot": 13,
+      "type": "IMAGE"
+     },
+     {
+      "id": 717,
+      "origin_id": -10,
       "origin_slot": 25,
+      "target_id": 474,
+      "target_slot": 14,
+      "type": "IMAGE"
+     },
+     {
+      "id": 718,
+      "origin_id": -10,
+      "origin_slot": 26,
+      "target_id": 474,
+      "target_slot": 15,
+      "type": "IMAGE"
+     },
+     {
+      "id": 719,
+      "origin_id": -10,
+      "origin_slot": 27,
       "target_id": 474,
       "target_slot": 16,
       "type": "IMAGE"
@@ -2391,7 +2552,7 @@
      {
       "id": 750,
       "origin_id": -10,
-      "origin_slot": 20,
+      "origin_slot": 18,
       "target_id": 485,
       "target_slot": 0,
       "type": "IMAGE"
@@ -2399,7 +2560,7 @@
      {
       "id": 779,
       "origin_id": -10,
-      "origin_slot": 21,
+      "origin_slot": 19,
       "target_id": 485,
       "target_slot": 1,
       "type": "IMAGE"
@@ -2407,7 +2568,7 @@
      {
       "id": 780,
       "origin_id": -10,
-      "origin_slot": 22,
+      "origin_slot": 20,
       "target_id": 485,
       "target_slot": 2,
       "type": "IMAGE"
@@ -2415,7 +2576,7 @@
      {
       "id": 781,
       "origin_id": -10,
-      "origin_slot": 23,
+      "origin_slot": 21,
       "target_id": 485,
       "target_slot": 3,
       "type": "IMAGE"
@@ -2423,7 +2584,7 @@
      {
       "id": 782,
       "origin_id": -10,
-      "origin_slot": 24,
+      "origin_slot": 22,
       "target_id": 485,
       "target_slot": 4,
       "type": "IMAGE"
@@ -2431,7 +2592,7 @@
      {
       "id": 783,
       "origin_id": -10,
-      "origin_slot": 25,
+      "origin_slot": 23,
       "target_id": 485,
       "target_slot": 5,
       "type": "IMAGE"
@@ -2439,7 +2600,7 @@
      {
       "id": 784,
       "origin_id": -10,
-      "origin_slot": 26,
+      "origin_slot": 24,
       "target_id": 485,
       "target_slot": 6,
       "type": "IMAGE"
@@ -2447,7 +2608,7 @@
      {
       "id": 785,
       "origin_id": -10,
-      "origin_slot": 27,
+      "origin_slot": 25,
       "target_id": 485,
       "target_slot": 7,
       "type": "IMAGE"
@@ -2455,7 +2616,7 @@
      {
       "id": 786,
       "origin_id": -10,
-      "origin_slot": 28,
+      "origin_slot": 26,
       "target_id": 485,
       "target_slot": 8,
       "type": "IMAGE"
@@ -2463,7 +2624,7 @@
      {
       "id": 787,
       "origin_id": -10,
-      "origin_slot": 29,
+      "origin_slot": 27,
       "target_id": 485,
       "target_slot": 9,
       "type": "IMAGE"
@@ -2509,20 +2670,20 @@
       "type": "INT"
      },
      {
+      "id": 804,
+      "origin_id": -10,
+      "origin_slot": 11,
+      "target_id": 500,
+      "target_slot": 7,
+      "type": "INT"
+     },
+     {
       "id": 902,
       "origin_id": -10,
       "origin_slot": 3,
       "target_id": 500,
       "target_slot": 8,
       "type": "BOOLEAN"
-     },
-     {
-      "id": 804,
-      "origin_id": -10,
-      "origin_slot": 13,
-      "target_id": 500,
-      "target_slot": 7,
-      "type": "INT"
      }
     ],
     "extra": {}
@@ -2531,24 +2692,24 @@
  },
  "config": {},
  "extra": {
-  "frontendVersion": "1.53.6",
+  "ds": {
+   "scale": 0.4559674823113218,
+   "offset": [
+    101.24527354978153,
+    -2280.2888800881387
+   ]
+  },
+  "frontendVersion": "1.55.14",
   "VHS_latentpreview": false,
   "VHS_latentpreviewrate": 0,
   "VHS_MetadataImage": true,
-  "VHS_KeepIntermediate": true,
-  "ds": {
-   "scale": 0.6940244165782402,
-   "offset": [
-    18.49586465896226,
-    -2317.9564251550173
-   ]
-  }
+  "VHS_KeepIntermediate": true
  },
  "version": 0.4,
  "models": [
   {
-   "name": "qwen_image_2.1_bf16.safetensors",
-   "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_bf16.safetensors",
+   "name": "qwen_image_2.1_turbo_bf16.safetensors",
+   "url": "https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/diffusion_models/qwen_image_2.1_turbo_bf16.safetensors",
    "directory": "diffusion_models"
   },
   {

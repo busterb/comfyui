@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Train a character LoRA for the People Edit Turbo model (Qwen Image 2.1) on a compute machine.
+# Train a character LoRA for the Character Edit Turbo model (Qwen Image 2.1) on a compute machine.
 #
 #   1. Put 15-30 photos of the character in ComfyUI/input/lora/NAME/: varied angles, poses, lighting and
 #      backgrounds, the character alone in each.

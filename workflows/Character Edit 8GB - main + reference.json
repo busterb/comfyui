@@ -28,7 +28,7 @@
     }
    },
    "widgets_values": [
-    "## People Edit for 8 GB GPUs (e.g. GTX 1080)\n\nFLUX.2 Klein 4B distilled, fp8 weights, 4 steps. Tested under a hard 8 GB VRAM cap: peak ~6.2 GB.\nThe text encoder (5.4 GB) and the edit model (3.9 GB) take turns on the GPU, so system RAM should be 16 GB or more.\n\n## Prompting tips\n\n- Refer to the inputs as **image 1** (the photo being edited) and **image 2** (the reference: garment, hairstyle, accessory, face...).\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be explicit about size and amount (*\"shoulder-length\"*, *\"subtle\"*): this smaller model tends to exaggerate edits.\n- One or two changes per run work best. For several changes, run again on the output.\n\n## Tradeoffs vs. the Qwen Image 2.1 workflows\n\n- Follows instructions less precisely and slightly less fine detail; identity, pose and background hold up well.\n- Inputs are scaled to ~1 megapixel; output follows image 1's aspect ratio.\n\n## Models (in ComfyUI/models)\n\n- diffusion_models/flux-2-klein-4b-fp8.safetensors\n- text_encoders/qwen_3_4b_fp8_mixed.safetensors\n- vae/flux2-vae.safetensors\n\n## Setting up a GTX 1080 machine\n\n- Pascal (sm_61) needs a PyTorch build for CUDA 12.6 (`--index-url https://download.pytorch.org/whl/cu126`); CUDA 12.8+/13 builds no longer support it.\n- ComfyUI runs fp8 weights on a 1080 by upcasting them to fp16 layer by layer, so no fp8 hardware is needed.\n"
+    "## Character Edit for 8 GB GPUs (e.g. GTX 1080)\n\nFLUX.2 Klein 4B distilled, fp8 weights, 4 steps. Tested under a hard 8 GB VRAM cap: peak ~6.2 GB.\nThe text encoder (5.4 GB) and the edit model (3.9 GB) take turns on the GPU, so system RAM should be 16 GB or more.\n\n## Prompting tips\n\n- Refer to the inputs as **image 1** (the photo being edited) and **image 2** (the reference: garment, hairstyle, accessory, face...).\n- Say what to change **and** what to keep, e.g. *\"Keep the face, identity, skin tone, pose, lighting and background unchanged.\"*\n- Be explicit about size and amount (*\"shoulder-length\"*, *\"subtle\"*): this smaller model tends to exaggerate edits.\n- One or two changes per run work best. For several changes, run again on the output.\n\n## Tradeoffs vs. the Qwen Image 2.1 workflows\n\n- Follows instructions less precisely and slightly less fine detail; identity, pose and background hold up well.\n- Inputs are scaled to ~1 megapixel; output follows image 1's aspect ratio.\n\n## Models (in ComfyUI/models)\n\n- diffusion_models/flux-2-klein-4b-fp8.safetensors\n- text_encoders/qwen_3_4b_fp8_mixed.safetensors\n- vae/flux2-vae.safetensors\n\n## Setting up a GTX 1080 machine\n\n- Pascal (sm_61) needs a PyTorch build for CUDA 12.6 (`--index-url https://download.pytorch.org/whl/cu126`); CUDA 12.8+/13 builds no longer support it.\n- ComfyUI runs fp8 weights on a 1080 by upcasting them to fp16 layer by layer, so no fp8 hardware is needed.\n"
    ],
    "color": "#222",
    "bgcolor": "#000",
@@ -132,7 +132,7 @@
     }
    },
    "widgets_values": [
-    "people_edit_8gb_reference"
+    "character_edit_8gb_reference"
    ]
   },
   {

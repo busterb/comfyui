@@ -35,7 +35,7 @@ if grep -qx 'gfx_target_version 110003' /sys/class/kfd/kfd/topology/nodes/*/prop
 fi
 # Apple Silicon: ComfyUI runs the text encoder on the CPU in fp16 there and uses sub-quadratic attention. With
 # unified memory there is nothing to offload to; keeping everything on the GPU plus PyTorch attention is ~17%
-# faster per edit (M5 Pro, People Edit 8GB with bf16 models). For Wan 2.2 14B video, which fills a 48 GB Mac,
+# faster per edit (M5 Pro, Character Edit 8GB with bf16 models). For Wan 2.2 14B video, which fills a 48 GB Mac,
 # --gpu-only is ~12% slower; COMFYUI_GPU_ONLY=0 ./run.sh leaves it out.
 if [[ "$(uname -s)" == Darwin ]] && [[ " $* " != *" --cpu "* ]]; then
   [[ "${COMFYUI_GPU_ONLY:-1}" == 1 ]] && EXTRA_ARGS+=(--gpu-only)

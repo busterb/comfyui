@@ -52,7 +52,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## People video (Wan 2.2 5B)\n\nAnimates a photo into a short silent clip with Wan 2.2 TI2V 5B. Small enough for a Mac or a 16 GB GPU.\n\n1. Pick the photo. It is the first frame; the video keeps its shape (portrait stays portrait).\n2. Describe the motion in the prompt (below), then **Run**.\n3. The clip is saved to `ComfyUI/output` as `people_video_wan5b_00001_.mp4` (24 fps).\n\n### Prompt tips\n- Describe one or two simple actions: a smile, a head turn, a wave, a laugh, hair moving in the wind.\n- Say what stays the same (face, hair, clothing, background).\n- Add camera direction: *steady camera*, *slow push-in*, *gentle pan left*.\n- The negative prompt (Chinese, from the official template) is tuned for Wan; leave it alone.\n\n### Settings\n- **short_edge**: 480 (default) is a quick preview. 704 is Wan 2.2's native size (1280×704) and much slower.\n- **duration**: seconds (2 by default; up to 5 s is the trained range). Time grows faster than length.\n- **seed** (in the sampler): change it for a different take of the same prompt.\n- Keep the sampler on **euler**. The template's `uni_pc` turns the clip into colored noise on Apple Silicon (MPS) at 20 steps.\n\n### Timing (M5 Pro, short_edge 480, models already loaded)\n- Landscape 832×480: 2 s in about 2½ min, 5 s in about 7 min.\n- Square 480×480: 2 s in under 2 min, 5 s in about 3½ min.\n- The first run of a session adds a minute or so while the models load.\n\nModels are in the Model Links note. Missing? Extensions → *Download missing models to server*."
+        "## Character video (Wan 2.2 5B)\n\nAnimates a photo into a short silent clip with Wan 2.2 TI2V 5B. Small enough for a Mac or a 16 GB GPU.\n\n1. Pick the photo. It is the first frame; the video keeps its shape (portrait stays portrait).\n2. Describe the motion in the prompt (below), then **Run**.\n3. The clip is saved to `ComfyUI/output` as `character_video_wan5b_00001_.mp4` (24 fps).\n\n### Prompt tips\n- Describe one or two simple actions: a smile, a head turn, a wave, a laugh, hair moving in the wind.\n- Say what stays the same (face, hair, clothing, background).\n- Add camera direction: *steady camera*, *slow push-in*, *gentle pan left*.\n- The negative prompt (Chinese, from the official template) is tuned for Wan; leave it alone.\n\n### Settings\n- **short_edge**: 480 (default) is a quick preview. 704 is Wan 2.2's native size (1280×704) and much slower.\n- **duration**: seconds (2 by default; up to 5 s is the trained range). Time grows faster than length.\n- **seed** (in the sampler): change it for a different take of the same prompt.\n- Keep the sampler on **euler**. The template's `uni_pc` turns the clip into colored noise on Apple Silicon (MPS) at 20 steps.\n\n### Timing (M5 Pro, short_edge 480, models already loaded)\n- Landscape 832×480: 2 s in about 2½ min, 5 s in about 7 min.\n- Square 480×480: 2 s in under 2 min, 5 s in about 3½ min.\n- The first run of a session adds a minute or so while the models load.\n\nModels are in the Model Links note. Missing? Extensions → *Download missing models to server*."
       ],
       "title": "Note: How to use"
     },
@@ -918,7 +918,7 @@
         "Node name for S&R": "SaveVideo"
       },
       "widgets_values": [
-        "people_video_wan5b",
+        "character_video_wan5b",
         "auto",
         "auto"
       ]
