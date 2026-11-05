@@ -73,6 +73,19 @@ cd $REMOTE_DIR
 git fetch -q origin && { git checkout -q "$commit" 2>/dev/null || git checkout -q origin/main; }
 git submodule update -q --init ComfyUI
 EOF
+  # Character LoRAs made with lora.sh go along, for the Character LoRAs node there; only ones it lacks
+  local loras="$PROJECT_DIR/ComfyUI/models/loras/characters" have f send=()
+  if compgen -G "$loras/*.safetensors" > /dev/null; then
+    have="$(ssh_cmd "mkdir -p $REMOTE_DIR/ComfyUI/models/loras/characters && cd $REMOTE_DIR/ComfyUI/models/loras/characters && for f in *.safetensors; do [ -e \"\$f\" ] && echo \"\$f \$(wc -c < \"\$f\")\"; done; true")"
+    for f in "$loras"/*.safetensors; do
+      grep -qxF "$(basename "$f") $(wc -c < "$f" | tr -d ' ')" <<< "$have" || send+=("$(basename "$f")")
+    done
+    if (( ${#send[@]} )); then
+      say "Copying ${#send[@]} character LoRA(s) there"
+      tar -C "$loras" -cf - "${send[@]}" | ssh_cmd "tar -C $REMOTE_DIR/ComfyUI/models/loras/characters -xf -"
+    fi
+  fi
+
   local count; count="$(jq length <<< "$models")"
   if (( count )); then
     jq -r '.[] | [.directory, .name, .url] | @tsv' <<< "$models" |

@@ -59,6 +59,7 @@ in ComfyUI's own folders and are not tracked either.
 ## Custom nodes
 
 - **remote_compute**: run jobs on another machine's ComfyUI while inputs and outputs stay local (below).
+- **character_lora**: apply up to two character LoRAs to a model, or none (the Character Edit workflows use it).
 - **batch_image_folder**: edit every image in an input subfolder with one workflow, one queued job per image.
 - **server_image_manager**: browse, preview and delete images and videos in ComfyUI's input and output folders.
 - **server_model_downloader**: download a workflow's missing models on the server instead of in the browser.
@@ -93,6 +94,11 @@ puppet. It runs ComfyUI's training nodes on a compute machine.
    are wrong. A caption should describe the pose, framing, setting and light, not the character's looks.
 3. `./lora.sh train NAME HOST` trains the LoRA. It lands in `models/loras/characters/NAME.safetensors`, both
    on HOST and here.
+
+To use a LoRA, pick it in `lora_1` on the Character Edit workflow's node, and put its trigger word (NAME, or
+`--trigger`) in the prompt. `lora_2` takes a second character, for scenes with two. "None" leaves a slot empty.
+The LoRA must be on the machine that computes: `lora.sh` puts it on HOST, and `runpod.sh` copies this
+machine's `models/loras/characters/` to each pod.
 
 HOST is an SSH host running this project's ComfyUI, as for `remote.sh`. The first run downloads the full
 Qwen Image 2.1 model there (14 GB). To train on a RunPod pod:

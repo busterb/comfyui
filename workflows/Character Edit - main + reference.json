@@ -1,8 +1,8 @@
 {
  "id": "e0fce7ac-9edc-47e6-95e0-2d70f5dcf847",
  "revision": 0,
- "last_node_id": 501,
- "last_link_id": 903,
+ "last_node_id": 502,
+ "last_link_id": 908,
  "nodes": [
   {
    "id": 459,
@@ -168,6 +168,42 @@
      "shape": 7,
      "type": "IMAGE",
      "link": null
+    },
+    {
+     "localized_name": "lora_1",
+     "name": "lora_1",
+     "type": "COMBO",
+     "widget": {
+      "name": "lora_1"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "strength_1",
+     "name": "strength_1",
+     "type": "FLOAT",
+     "widget": {
+      "name": "strength_1"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "lora_2",
+     "name": "lora_2",
+     "type": "COMBO",
+     "widget": {
+      "name": "lora_2"
+     },
+     "link": null
+    },
+    {
+     "localized_name": "strength_2",
+     "name": "strength_2",
+     "type": "FLOAT",
+     "widget": {
+      "name": "strength_2"
+     },
+     "link": null
     }
    ],
    "outputs": [
@@ -202,7 +238,11 @@
     "qwen_image_2.1_vae_bf16.safetensors",
     "auto",
     "default",
-    "qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors"
+    "qwen3.5_9b_qwen_image_2.1_pe_i2i.int8_convrot.safetensors",
+    "None",
+    1,
+    "None",
+    1
    ],
    "widgets_values_named": {
     "resolution": 0,
@@ -471,8 +511,8 @@
     "version": 1,
     "state": {
      "lastGroupId": 38,
-     "lastNodeId": 501,
-     "lastLinkId": 903,
+     "lastNodeId": 502,
+     "lastLinkId": 908,
      "lastRerouteId": 9
     },
     "revision": 0,
@@ -890,6 +930,54 @@
        -600.955078125,
        1234
       ]
+     },
+     {
+      "id": "597f3759-213c-43d1-b7c2-49c60722ae9e",
+      "name": "lora_1",
+      "type": "COMBO",
+      "linkIds": [
+       905
+      ],
+      "pos": [
+       -600.955078125,
+       1254
+      ]
+     },
+     {
+      "id": "7e6c9005-928a-48f2-9f92-b1f907f3e0dc",
+      "name": "strength_1",
+      "type": "FLOAT",
+      "linkIds": [
+       906
+      ],
+      "pos": [
+       -600.955078125,
+       1274
+      ]
+     },
+     {
+      "id": "3dc938f4-82e4-44e3-8c52-daeeb7dda388",
+      "name": "lora_2",
+      "type": "COMBO",
+      "linkIds": [
+       907
+      ],
+      "pos": [
+       -600.955078125,
+       1294
+      ]
+     },
+     {
+      "id": "4f5015b9-7d8a-47ee-8743-4835475db975",
+      "name": "strength_2",
+      "type": "FLOAT",
+      "linkIds": [
+       908
+      ],
+      "pos": [
+       -600.955078125,
+       1314
+      ]
      }
     ],
     "outputs": [
@@ -940,7 +1028,7 @@
         "name": "MODEL",
         "type": "MODEL",
         "links": [
-         688
+         904
         ]
        }
       ],
@@ -968,7 +1056,7 @@
       "type": "CLIPLoader",
       "pos": [
        -190,
-       570
+       760
       ],
       "size": [
        510,
@@ -1024,7 +1112,7 @@
       "type": "VAELoader",
       "pos": [
        -190,
-       770
+       960
       ],
       "size": [
        510,
@@ -1077,7 +1165,7 @@
       "type": "EmptyLatentImage",
       "pos": [
        -70,
-       1010
+       1200
       ],
       "size": [
        300,
@@ -2029,6 +2117,84 @@
        "use_default_template": true,
        "mtp": "auto"
       }
+     },
+     {
+      "id": 502,
+      "type": "CharacterLoRAs",
+      "pos": [
+       -190,
+       540
+      ],
+      "size": [
+       510,
+       160
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+       {
+        "localized_name": "model",
+        "name": "model",
+        "type": "MODEL",
+        "link": 904
+       },
+       {
+        "localized_name": "lora_1",
+        "name": "lora_1",
+        "type": "COMBO",
+        "widget": {
+         "name": "lora_1"
+        },
+        "link": 905
+       },
+       {
+        "localized_name": "strength_1",
+        "name": "strength_1",
+        "type": "FLOAT",
+        "widget": {
+         "name": "strength_1"
+        },
+        "link": 906
+       },
+       {
+        "localized_name": "lora_2",
+        "name": "lora_2",
+        "type": "COMBO",
+        "widget": {
+         "name": "lora_2"
+        },
+        "link": 907
+       },
+       {
+        "localized_name": "strength_2",
+        "name": "strength_2",
+        "type": "FLOAT",
+        "widget": {
+         "name": "strength_2"
+        },
+        "link": 908
+       }
+      ],
+      "outputs": [
+       {
+        "localized_name": "MODEL",
+        "name": "MODEL",
+        "type": "MODEL",
+        "links": [
+         688
+        ]
+       }
+      ],
+      "properties": {
+       "Node name for S&R": "CharacterLoRAs"
+      },
+      "widgets_values": [
+       "None",
+       1,
+       "None",
+       1
+      ]
      }
     ],
     "groups": [
@@ -2039,7 +2205,7 @@
        -200,
        300,
        530,
-       590
+       780
       ],
       "color": "#3f789e",
       "flags": {}
@@ -2049,7 +2215,7 @@
       "title": "Image Size",
       "bounding": [
        -200,
-       920,
+       1110,
        530,
        250
       ],
@@ -2136,7 +2302,7 @@
      },
      {
       "id": 688,
-      "origin_id": 451,
+      "origin_id": 502,
       "origin_slot": 0,
       "target_id": 469,
       "target_slot": 0,
@@ -2573,6 +2739,46 @@
       "target_id": 500,
       "target_slot": 7,
       "type": "INT"
+     },
+     {
+      "id": 904,
+      "origin_id": 451,
+      "origin_slot": 0,
+      "target_id": 502,
+      "target_slot": 0,
+      "type": "MODEL"
+     },
+     {
+      "id": 905,
+      "origin_id": -10,
+      "origin_slot": 30,
+      "target_id": 502,
+      "target_slot": 1,
+      "type": "COMBO"
+     },
+     {
+      "id": 906,
+      "origin_id": -10,
+      "origin_slot": 31,
+      "target_id": 502,
+      "target_slot": 2,
+      "type": "FLOAT"
+     },
+     {
+      "id": 907,
+      "origin_id": -10,
+      "origin_slot": 32,
+      "target_id": 502,
+      "target_slot": 3,
+      "type": "COMBO"
+     },
+     {
+      "id": 908,
+      "origin_id": -10,
+      "origin_slot": 33,
+      "target_id": 502,
+      "target_slot": 4,
+      "type": "FLOAT"
      }
     ],
     "extra": {}
