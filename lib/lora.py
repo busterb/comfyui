@@ -37,11 +37,13 @@ LOADER_OF = {"diffusion_models": ("UNETLoader", "unet_name"), "text_encoders": (
              "vae": ("VAELoader", "vae_name")}
 TRAIN_PIXELS = 1024 * 1024  # photos are scaled to about this many pixels, sides multiples of 32
 
-CAPTION_PROMPT = """This photo shows a puppet character called {trigger}. Write a caption for training an image \
-model on this character. Start with "{trigger}, a puppet," and then describe in one or two plain sentences: \
-the pose and action, the camera angle and framing, the setting and background, and the lighting. \
-Don't describe the puppet's own colors, materials, face or clothing: the name {trigger} stands for those. \
+CAPTION_PROMPT = """This photo shows a {kind} called {trigger}. Write a caption for training an image \
+model on this character. Start with "{trigger}, a {kind}," and then describe in one or two plain sentences: \
+the pose and action, the camera angle and framing, the setting and background, and the lighting. {look} \
 Write only the caption."""
+PUPPET_LOOK = "Don't describe the puppet's own colors, materials, face or clothing: the name {trigger} stands for those."
+PERSON_LOOK = ("Mention what {trigger} is wearing and any other people in the photo, but don't describe {trigger}'s "
+               "face, hair or build: the name {trigger} stands for those.")
 
 
 def die(msg):
@@ -87,7 +89,7 @@ class Machine:
         self.tunnel = None
 
     def __enter__(self):
-        self.tunnel = subprocess.Popen(self.ssh + ["-N", "-o", "ExitOnForwardFailure=yes", "-o", "ServerAliveInterval=30",
+        self.tunnel = subprocess.Popen(self.ssh + ["-N", "-o", "ControlPath=none", "-o", "ExitOnForwardFailure=yes", "-o", "ServerAliveInterval=30",
                                                    "-L", f"{self.local}:127.0.0.1:{self.port}", self.host])
         for _ in range(30):
             if self.tunnel.poll() is not None:
@@ -182,11 +184,16 @@ async def run_prompt(s, m, prompt, label):
     return (await get_json(s, f"{m.url}/history/{pid}"))[pid]
 
 
-def caption_prompt(image, trigger):
+def caption_text(trigger, kind):
+    look = (PUPPET_LOOK if kind == "puppet" else PERSON_LOOK).format(trigger=trigger)
+    return CAPTION_PROMPT.format(trigger=trigger, kind=kind, look=look)
+
+
+def caption_prompt(image, trigger, kind):
     return {
         "1": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen3vl_8b_bf16.safetensors", "type": "qwen_image", "device": "default"}},
         "2": {"class_type": "LoadImage", "inputs": {"image": image}},
-        "3": {"class_type": "TextGenerate", "inputs": {"clip": ["1", 0], "image": ["2", 0], "prompt": CAPTION_PROMPT.format(trigger=trigger),
+        "3": {"class_type": "TextGenerate", "inputs": {"clip": ["1", 0], "image": ["2", 0], "prompt": caption_text(trigger, kind),
                                                      "max_length": 256, "sampling_mode": "off", "thinking": False}},
         "4": {"class_type": "PreviewAny", "inputs": {"source": ["3", 0]}},
     }
@@ -221,7 +228,7 @@ async def cmd_caption(a):
             for i, p in enumerate(todo, 1):
                 filename = f"{a.name}-{p.stem}.jpg"
                 await upload(s, m, scaled_jpeg(p, 768 * 768), filename, "lora_captions")
-                h = await run_prompt(s, m, caption_prompt(f"lora_captions/{filename}", a.trigger), f"caption {i}/{len(todo)}")
+                h = await run_prompt(s, m, caption_prompt(f"lora_captions/{filename}", a.trigger, a.kind), f"caption {i}/{len(todo)}")
                 text = h["outputs"]["4"]["text"][0].strip().strip('"')
                 p.with_suffix(".txt").write_text(text + "\n")
                 print(f"{p.name}: {text}")
@@ -278,6 +285,8 @@ def main():
         c.add_argument("--trigger", help="the word that names the character in prompts (default: NAME)")
         if cmd == "caption":
             c.add_argument("--overwrite", action="store_true", help="rewrite existing captions too")
+            c.add_argument("--kind", default="puppet",
+                           help='what the character is, as the captions name it: "puppet" (default), "woman", "man", ...')
         else:
             c.add_argument("--steps", type=int, default=2000, help="training steps (default 2000, about 100 per photo)")
             c.add_argument("--rank", type=int, default=16, help="LoRA rank (default 16)")

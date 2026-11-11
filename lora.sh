@@ -12,7 +12,7 @@
 # HOST is an SSH host running this project's ComfyUI (port 8188, or HOST:PORT), like remote.sh's.
 # For a RunPod pod: SSH_CONFIG=.cache/runpod/ssh_config ./lora.sh train NAME runpod
 # Options: --trigger WORD (the name in prompts, default NAME); train: --steps, --rank, --learning-rate;
-# caption: --overwrite. ./lora.sh train --help lists them all.
+# caption: --kind (puppet, woman, man...; default puppet), --overwrite. ./lora.sh train --help lists them all.
 set -euo pipefail
 {
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
