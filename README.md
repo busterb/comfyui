@@ -141,7 +141,8 @@ models nor a GPU.
 ### On a rented cloud GPU
 
 `runpod.sh` rents a [RunPod](https://www.runpod.io) pod to be the compute machine. First put a RunPod API key
-in `.cache/runpod/api_key`.
+in `.cache/runpod/api_key`. It talks to RunPod through RunPod's own CLI, `runpodctl`. On first use it downloads a
+pinned version to `.cache/runpodctl/` and checks its SHA-256. You don't need to install or log in to it.
 
 ```sh
 ./runpod.sh offers                        # GPUs in stock and their prices
@@ -164,6 +165,10 @@ in `.cache/runpod/api_key`.
 The project, its venv and the models live on a RunPod network volume, which outlives the pods. The first pod
 on a volume installs everything and downloads the models, which takes about 15 minutes. Later pods are ready
 in a few minutes. A volume is billed monthly by size.
+
+Pods run RunPod's PyTorch image. The venv is built on the image's Python with its packages, so PyTorch and CUDA
+come from the pod's own disk. Only ComfyUI's other packages go on the volume. ComfyUI itself is still this
+repository's pinned version.
 
 The volume needs room for the models of every workflow you rent for:
 
@@ -209,6 +214,8 @@ every route the custom nodes add. This project relies on that port never being e
   folder when asked, using the Hugging Face token in `.cache/`. `server_image_manager` can delete images and
   videos in `input/` and `output/`. Both are only as safe as access to the port.
 - `runpod.sh` keeps the RunPod API key, an SSH key for the pods and the pods' host keys in `.cache/runpod/`.
+  It hands the key to `runpodctl` in its environment, not on the command line. `runpodctl` keeps its own
+  settings in `.cache/runpodctl/`, and the key isn't written there.
   A pod's ComfyUI also stays on its localhost, reached through the SSH tunnel. Pods never get your Hugging
   Face token, so they can't download gated models. They never get your RunPod API key either: they delete
   themselves with the key RunPod gives each pod.

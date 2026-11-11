@@ -41,15 +41,27 @@
 # this machine goes offline; the idle limit starts once the pod is set up. The API key is read from
 # RUNPOD_API_KEY or .cache/runpod/api_key (create one at https://console.runpod.io/user/settings). A key made
 # for the pods and their host keys are kept in .cache/runpod/ (git-ignored). Pods run this repository at this
-# checkout's commit.
+# checkout's commit, on RunPod's PyTorch image (its PyTorch, not one on the volume).
+#
+# The API calls go through RunPod's CLI, runpodctl: a pinned version is downloaded to .cache/runpodctl/ on first
+# use. It gets the same API key, in its environment.
 set -euo pipefail
 shopt -s inherit_errexit  # functions run in $(...) stop at their first error too
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE="${RUNPOD_STATE:-$PROJECT_DIR/.cache/runpod}"  # RUNPOD_STATE: another one (for testing)
-REST="https://rest.runpod.io/v1"
-GRAPHQL="https://api.runpod.io/graphql"
-IMAGE="runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04"  # for its sshd setup; setup.sh brings its own PyTorch
+# RunPod's CLI, runpodctl, makes the API calls. This version is downloaded to .cache/runpodctl/ and checked
+# against these SHA-256 sums (from the release's checksums file). RUNPODCTL=path uses another copy instead.
+RUNPODCTL_VERSION=3.0.1
+RUNPODCTL_SHA256="linux-amd64 b66d11eca8cacbf18a2de6943c6e18a79ffbdc8a3c30aa13a49dc6cfc15d4239
+linux-arm64 c6c922888f44986fd68875d1befe5347e358d664057ab14db6669e0ef0389f3d
+darwin-amd64 10197e3e3041e8f163b983dc013ba01f4fe74f2be4348277cbd16ebaf57ce994
+darwin-arm64 5368af128420e725d6c1cb1336e3624f637a8f81fa726484b609a705a773c62b"
+# For its sshd setup, and its PyTorch: setup.sh builds the venv on the image's Python 3.12 and uses the PyTorch
+# installed there (SYSTEM_PYTHON), so only ComfyUI's other packages go on the network volume.
+IMAGE="runpod/pytorch:1.5.0-cu1281-torch2130-ubuntu2404"
+MIN_CUDA=12.8  # the image's CUDA: hosts with older drivers can't run it
+SETUP_ENV="SYSTEM_PYTHON=/usr/bin/python3.12"  # for lib/cloud.sh
 VOLUME_NAME="comfyui"  # and comfyui-<data center> for more volumes
 HOST_ALIAS=runpod  # the first pod; more are runpod2, runpod3, ...
 REPO_URL="https://github.com/busterb/comfyui.git"
@@ -70,35 +82,44 @@ api_key() {
   else die "no API key: create one at https://console.runpod.io/user/settings and save it in $STATE/api_key"
   fi
 }
-http() {  # METHOD URL [JSON body]; the key goes in a header file, not on the command line
-  local key hdr; key="$(api_key)"
-  hdr="$(mktemp "$STATE/.hdr.XXXXXX")"
-  printf 'Authorization: Bearer %s\n' "$key" > "$hdr"
-  # Time requests out, and retry the ones that are safe to repeat (not a create)
-  local out code attempts=4 i
-  [[ $1 == POST && $2 != "$GRAPHQL" ]] && attempts=1
-  for (( i = 1; i <= attempts; i++ )); do
-    code=000
-    if out="$(curl -sS --connect-timeout 15 --max-time 60 -w '\n%{http_code}' -X "$1" -H "@$hdr" \
-        -H 'Content-Type: application/json' ${3:+--data "$3"} "$2" 2>&1)"; then
-      code="${out##*$'\n'}" out="${out%$'\n'*}"
-      [[ $code == 5* || $code == 429 ]] || break  # 429: too many requests
-    fi
-    (( i < attempts )) && { echo "  (RunPod API: ${code/#000/no answer}, retrying)" >&2; sleep $(( i * 5 )); }
-  done
-  rm -f "$hdr"
-  [[ $code == 404 && -n ${HTTP_404_OK:-} ]] && return 0  # the caller handles "not found" (prints nothing)
-  [[ $code != 000 ]] || die "RunPod API $1 ${2#https://}: no answer ($out)"
-  if [[ $code != 2* ]]; then
-    die "RunPod API $1 ${2#https://}: HTTP $code $(jq -r '(.error // .message // .)|tostring' <<< "$out" 2>/dev/null || echo "$out")"
-  fi
-  echo "$out"
+runpodctl_bin() {  # the path of runpodctl, downloaded on first use
+  [[ -z ${RUNPODCTL:-} ]] || { echo "$RUNPODCTL"; return; }
+  local dir="$PROJECT_DIR/.cache/runpodctl/$RUNPODCTL_VERSION" os arch want got
+  [[ -x $dir/runpodctl ]] && { echo "$dir/runpodctl"; return; }
+  case "$(uname -s)" in Linux) os=linux ;; Darwin) os=darwin ;; *) die "no runpodctl build for $(uname -s)" ;; esac
+  case "$(uname -m)" in x86_64|amd64) arch=amd64 ;; arm64|aarch64) arch=arm64 ;; *) die "no runpodctl build for $(uname -m)" ;; esac
+  want="$(awk -v p="$os-$arch" '$1 == p {print $2}' <<< "$RUNPODCTL_SHA256")"
+  mkdir -p "$dir"
+  echo "downloading runpodctl $RUNPODCTL_VERSION" >&2
+  curl -fsSL --connect-timeout 15 --retry 3 -o "$dir/runpodctl.new" \
+    "https://github.com/runpod/runpodctl/releases/download/v$RUNPODCTL_VERSION/runpodctl-$os-$arch" ||
+    die "couldn't download runpodctl"
+  got="$( { sha256sum "$dir/runpodctl.new" 2>/dev/null || shasum -a 256 "$dir/runpodctl.new"; } | awk '{print $1}')"
+  [[ $got == "$want" ]] || { rm -f "$dir/runpodctl.new"; die "runpodctl download has the wrong SHA-256 ($got)"; }
+  chmod +x "$dir/runpodctl.new" && mv "$dir/runpodctl.new" "$dir/runpodctl"
+  echo "$dir/runpodctl"
 }
-rest() { http "$1" "$REST$2" "${3:-}"; }
-graphql() {  # QUERY -> .data, or dies with the errors
-  local out; out="$(http POST "$GRAPHQL" "$(jq -nc --arg q "$1" '{query: $q}')")"
-  jq -e '.errors | not' <<< "$out" >/dev/null || die "RunPod API: $(jq -r '[.errors[].message] | join("; ")' <<< "$out")"
-  jq '.data' <<< "$out"
+rpctl() {  # runpodctl ARGS... -> its JSON output. Dies with its error, except "not found" when NOT_FOUND_OK is set
+  # (prints nothing then). The key goes in its environment, not on the command line.
+  local bin key err out code="" msg attempts=4 i
+  bin="$(runpodctl_bin)" key="$(api_key)"
+  [[ ${2:-} == create ]] && attempts=1  # retry only what is safe to repeat
+  err="$(mktemp "$STATE/.err.XXXXXX")"
+  for (( i = 1; i <= attempts; i++ )); do
+    # HOME: it keeps its settings in ~/.runpod; this keeps them in the project, like everything else
+    if out="$(HOME="$PROJECT_DIR/.cache/runpodctl" RUNPOD_API_KEY="$key" RUNPOD_NO_UPDATE_CHECK=1 "$bin" "$@" -o json 2> "$err")"; then
+      rm -f "$err"; echo "$out"; return 0
+    fi
+    # errors are one JSON object on stderr: {"error": ..., "code": ...}
+    code="$(grep '^{' "$err" | tail -1 | jq -r '.code // empty' 2>/dev/null || true)"
+    [[ $code == rate_limited || $code == server_error || $code == network_error || $code == timeout ]] || break
+    (( i < attempts )) && { echo "  (RunPod API: $code, retrying)" >&2; sleep $(( i * 5 )); }
+  done
+  msg="$(grep '^{' "$err" | tail -1 | jq -r '.error // empty' 2>/dev/null || true)"
+  [[ -n $msg ]] || msg="$(tr '\n' ' ' < "$err")"
+  rm -f "$err"
+  [[ $code == not_found && -n ${NOT_FOUND_OK:-} ]] && return 0
+  die "runpodctl $1 ${2:-}: ${msg:-failed}${code:+ ($code)}"
 }
 
 # The rented pods, one "ID ALIAS GPUS" line each, in .cache/runpod/pods. A pod_id file is a pod rented by the
@@ -127,30 +148,31 @@ forget_pod() {  # ID
 check_pods() {  # forget pods that are gone (they delete themselves at their limits); true if any are left
   local id out
   for id in $(pod_ids); do
-    out="$(HTTP_404_OK=1 rest GET "/pods/$id")"
-    [[ -n $out ]] && continue
+    out="$(NOT_FOUND_OK=1 rpctl pod get "$id")"
+    [[ -n $out && $(jq -r .desiredStatus <<< "$out") != TERMINATED ]] && continue
     echo "pod $id is gone (deleted at its time or idle limit)"
     forget_pod "$id"
   done
   [[ -n $(pods) ]]
 }
 volumes() {  # this project's network volumes (at most one per data center) as a JSON array
-  rest GET /networkvolumes | jq --arg n "$VOLUME_NAME" 'map(select(.name == $n or (.name | startswith($n + "-"))))'
+  rpctl network-volume list | jq --arg n "$VOLUME_NAME" 'map(select(.name == $n or (.name | startswith($n + "-"))))'
 }
-availability() {  # GPU_ID -> JSON {data center: stock} where it is in stock
-  graphql '{ dataCenters { id listed gpuAvailability { gpuTypeId stockStatus } } }' | jq --arg g "$1" '
-    [.dataCenters[] | select(.listed != false)  # a type may be listed more than once: take its best stock
-     | {id, s: ([.gpuAvailability[]? | select(.gpuTypeId == $g and .stockStatus != null) | .stockStatus]
-                | min_by({"High": 0, "Medium": 1, "Low": 2}[.] // 3))}
-     | select(.s != null)] | map({(.id): .s}) | add // {}'
+gpu_list() {  # every GPU type, with its price and stock per data center
+  rpctl gpu list --include-unavailable
+}
+availability() {  # GPU_LIST_JSON GPU_ID -> JSON {data center: stock} where it is in stock
+  jq --arg g "$2" '[.[] | select(.gpuId == $g) | .dataCenterAvailability[]? | select(.stockStatus | IN("High", "Medium", "Low"))]
+    | group_by(.dataCenterId)  # a type may be listed more than once: take its best stock
+    | map({(.[0].dataCenterId): (map(.stockStatus) | min_by({"High": 0, "Medium": 1, "Low": 2}[.]))}) | add // {}' <<< "$1"
 }
 best_dc() {  # AVAILABILITY_JSON [DATA CENTER...] -> the one with the most stock (US first on ties), or nothing
   local avail="$1"; shift
   jq -rn --argjson a "$avail" --args '($ARGS.positional | if length > 0 then . else ($a | keys) end)
     | map(select($a[.] != null)) | sort_by([{"High": 0, "Medium": 1, "Low": 2}[$a[.]] // 3, (startswith("US") | not)]) | first // empty' "$@"
 }
-gpu_types() {
-  graphql '{ gpuTypes { id displayName memoryInGb securePrice secureCloud } }' | jq '.gpuTypes'
+gpu_types() {  # GPU_LIST_JSON -> [{id, displayName, memoryInGb, securePrice}] of the types on Secure Cloud
+  jq 'map(select(.secureCloud and .securePricePerHr != null) | {id: .gpuId, displayName, memoryInGb, securePrice: .securePricePerHr})' <<< "$1"
 }
 
 write_ssh_config() {  # from .cache/runpod/hosts/ALIAS ("HOST PORT"), one block per pod
@@ -182,10 +204,13 @@ EOF
 }
 
 # Deletes the pod it runs on: runpodctl and the pod's own API key are part of RunPod's images
-SELF_DELETE='runpodctl remove pod "$RUNPOD_POD_ID" || curl -sS -X DELETE -H "Authorization: Bearer $RUNPOD_API_KEY" "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID"'
+SELF_DELETE='runpodctl pod delete "$RUNPOD_POD_ID" || runpodctl remove pod "$RUNPOD_POD_ID" || curl -sS -X DELETE -H "Authorization: Bearer $RUNPOD_API_KEY" "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID"'
 
-provision() {  # MODELS_JSON IDLE_MINUTES, on the pod HOST_ALIAS
-  INSTANCES="$(gpus_of "$HOST_ALIAS")" provision_project "$1" ""
+provision() {  # MODELS_JSON IDLE_MINUTES IMAGE, on the pod HOST_ALIAS (IMAGE: the one it runs)
+  # A pod rented with an older image (by an older version of this script) lacks the Python SETUP_ENV names
+  local setup_env="$SETUP_ENV"
+  [[ $3 == "$IMAGE" ]] || { setup_env=""; echo "(pod runs $3, not $IMAGE: setup.sh installs PyTorch in the venv)"; }
+  SETUP_ENV="$setup_env" INSTANCES="$(gpus_of "$HOST_ALIAS")" provision_project "$1" ""
   if (( $2 > 0 )); then
     ssh_cmd "cat > /root/idle-watchdog.sh; pkill -f '^bash /root/idle-watchdog[.]sh\$'; setsid nohup bash /root/idle-watchdog.sh > /root/idle-watchdog.log 2>&1 < /dev/null &" \
       <<< "$(idle_watchdog "$2" "$(gpus_of "$HOST_ALIAS")")"
@@ -230,9 +255,10 @@ EOF
 }
 
 refresh_stock() {  # sets the caller's avails (per type: {data center: stock}), avail (where all are) and where
-  local t
+  local t data
+  data="$(gpu_list)"
   avails=()
-  for t in "${types[@]}"; do avails+=("$(availability "$(jq -r .id <<< "$t")")"); done
+  for t in "${types[@]}"; do avails+=("$(availability "$data" "$(jq -r .id <<< "$t")")"); done
   # where all of them are in stock: {data center: worst stock} over the data centers that have every one
   avail="$(jq -s 'map(to_entries | map({(.key): .value}) | add // {}) as $a
     | ($a[0] | keys) | map(select(. as $d | all($a[]; has($d)))) | map({(.): ([$a[][.]] | max_by({"High": 0, "Medium": 1, "Low": 2}[.]))}) | add // {}' \
@@ -282,10 +308,10 @@ cmd_up() {
 
   # The GPU types, and where they are in stock
   local all_types g type types=() avails=() avail where
-  all_types="$(gpu_types)"
+  all_types="$(gpu_types "$(gpu_list)")"
   for g in "${gpus[@]}"; do
     type="$(jq --arg g "$g" 'map(select((.displayName | ascii_downcase) == ($g | ascii_downcase) or .id == $g)) | first // empty' <<< "$all_types")"
-    [[ -n $type ]] || die "no GPU \"$g\"; ./runpod.sh offers lists them"
+    [[ -n $type ]] || die "no GPU \"$g\" on Secure Cloud; ./runpod.sh offers lists them"
     types+=("$type")
   done
   refresh_stock
@@ -333,7 +359,7 @@ echo \"\$(date): time limit, deleting this pod\"; $SELF_DELETE) > /root/time-lim
   [[ $dry == 1 ]] || { rm -f "$STATE/known_hosts"; mkdir -p "$STATE/hosts"; rm -f "$STATE/hosts/"*; }
 
   # Rent, and with --wait keep trying (stock can be gone within seconds) until every pod is rented or time is up
-  local todo=("${!types[@]}") until=$(( $(date +%s) + wait * 60 )) next_note=0 left body pod id alias name
+  local todo=("${!types[@]}") until=$(( $(date +%s) + wait * 60 )) next_note=0 left pod id alias name
   while :; do
     if [[ -n $dc ]]; then
       if [[ -z $vol ]] || [[ $(jq -r .dataCenterId <<< "$vol") != "$dc" ]]; then
@@ -344,7 +370,7 @@ echo \"\$(date): time limit, deleting this pod\"; $SELF_DELETE) > /root/time-lim
         vol="$(jq -nc --arg d "$dc" '{id: "dry-run", dataCenterId: $d}')"
       elif [[ -z $vol ]]; then
         name="$VOLUME_NAME-$dc"; [[ $(jq length <<< "$vols") == 0 ]] && name="$VOLUME_NAME"  # the first one
-        vol="$(rest POST /networkvolumes "$(jq -nc --arg n "$name" --argjson s "$volume_gb" --arg d "$dc" '{name: $n, size: $s, dataCenterId: $d}')")"
+        vol="$(rpctl network-volume create --name "$name" --size "$volume_gb" --data-center-id "$dc")"
         vols="$(volumes)" vol_dcs=("$dc")
         echo "created network volume $(jq -r .id <<< "$vol") in $dc"
       fi
@@ -355,19 +381,21 @@ echo \"\$(date): time limit, deleting this pod\"; $SELF_DELETE) > /root/time-lim
           echo "dry run: $(date +%H:%M:%S) would rent pod $(( i + 1 )) (${per_pod}× ${gpus[$i]}) in $dc, stock $(jq -r --arg d "$dc" '.[$d]' <<< "${avails[$i]}")"
           continue
         fi
-        body="$(jq -nc --arg img "$IMAGE" --arg g "$(jq -r .id <<< "${types[$i]}")" --argjson n "$per_pod" \
-          --arg v "$(jq -r .id <<< "$vol")" --arg d "$dc" --arg key "$(cat "$STATE/id_ed25519.pub")" --arg start "$guard" \
-          '{name: "comfyui-remote", imageName: $img, gpuTypeIds: [$g], gpuCount: $n, cloudType: "SECURE",
-            networkVolumeId: $v, volumeMountPath: "/workspace", dataCenterIds: [$d], containerDiskInGb: 20,
-            ports: ["22/tcp"], env: {PUBLIC_KEY: $key}, dockerStartCmd: ["bash", "-c", $start]}')"
-        if ! pod="$(rest POST /pods "$body" 2>&1)" || [[ $(jq -r '.id // "null"' <<< "$pod" 2>/dev/null) == null ]]; then
+        # --docker-args as JSON is the start command as is, with no shell splitting
+        if ! pod="$(rpctl pod create --name comfyui-remote --image "$IMAGE" --min-cuda-version "$MIN_CUDA" \
+              --gpu-id "$(jq -r .id <<< "${types[$i]}")" --gpu-count "$per_pod" --cloud-type SECURE \
+              --network-volume-id "$(jq -r .id <<< "$vol")" --volume-mount-path /workspace --data-center-ids "$dc" \
+              --container-disk-in-gb 20 --ports 22/tcp \
+              --env "$(jq -nc --arg key "$(cat "$STATE/id_ed25519.pub")" '{PUBLIC_KEY: $key}')" \
+              --docker-args "$(jq -nc --arg start "$guard" '{cmd: ["bash", "-c", $start]}')" 2>&1)" ||
+            [[ $(jq -r '.id // "null"' <<< "$pod" 2>/dev/null) == null ]]; then
           (( wait > 0 )) || echo "couldn't rent pod $(( i + 1 )) (${gpus[$i]}): ${pod#ERROR: }" >&2
           left+=("$i"); continue
         fi
         id="$(jq -r .id <<< "$pod")"
         alias="$HOST_ALIAS"; [[ -z $(pods) ]] || alias="$HOST_ALIAS$(( $(pods | wc -l) + 1 ))"
         echo "$id $alias $per_pod" >> "$STATE/pods"
-        echo "rented pod $id ($alias, ${per_pod}× $(jq -r '.gpu.displayName // empty' <<< "$pod")): \$$(jq -r .costPerHr <<< "$pod")/h"
+        echo "rented pod $id ($alias, ${per_pod}× ${gpus[$i]}): \$$(jq -r .costPerHr <<< "$pod")/h"
         fixed_dc="$dc"  # the rest must share its volume
       done
       todo=(${left[@]+"${left[@]}"})
@@ -395,9 +423,9 @@ start_pods() {  # MODELS_JSON IDLE_MINUTES: wait for each pod, set it up; one at
     say "Waiting for pod $id ($alias) to start"
     ip= port=
     for _ in $(seq 1 90); do
-      pod="$(rest GET "/pods/$id")"
+      pod="$(rpctl pod get "$id")"
       [[ $(jq -r .desiredStatus <<< "$pod") == RUNNING ]] || die "pod $id is $(jq -r .desiredStatus <<< "$pod")"
-      ip="$(jq -r '.publicIp // empty' <<< "$pod")" port="$(jq -r '.portMappings["22"] // empty' <<< "$pod")"
+      ip="$(jq -r '.ssh.ip // empty' <<< "$pod")" port="$(jq -r '.ssh.port // empty' <<< "$pod")"
       [[ -n $ip && -n $port ]] && break
       sleep 10
     done
@@ -407,7 +435,7 @@ start_pods() {  # MODELS_JSON IDLE_MINUTES: wait for each pod, set it up; one at
     HOST_ALIAS="$alias"
     ssh_ready
     ssh_cmd 'nvidia-smi --query-gpu=name,memory.total --format=csv,noheader' || die "pod $id has no working GPU (./runpod.sh down)"
-    provision "$1" "$2"
+    provision "$1" "$2" "$(jq -r .imageName <<< "$pod")"
     n=$(( n + 1 ))
   done
   HOST_ALIAS=runpod
@@ -462,14 +490,14 @@ cmd_extend() {  # HOURS: move the time limits, counted from the current ones (or
       echo "couldn't extend $alias" >&2
   done
   local d; d="$(earliest_deadline)" && deadline_info "$d"
-  echo "(at \$$(for id in $(pod_ids); do rest GET "/pods/$id" | jq .costPerHr; done | jq -s add)/h)"
+  echo "(at \$$(for id in $(pod_ids); do rpctl pod get "$id" | jq .costPerHr; done | jq -s add)/h)"
 }
 
 cmd_down() {
   check_pods || { echo "no pod rented"; return; }
   local id
   for id in $(pod_ids); do
-    HTTP_404_OK=1 rest DELETE "/pods/$id" > /dev/null
+    NOT_FOUND_OK=1 rpctl pod delete "$id" > /dev/null
     echo "deleted pod $id"
     forget_pod "$id"
   done
@@ -490,11 +518,11 @@ cmd_run() {  # delete the pods however this ends, including a failed setup
 cmd_offers() {  # GPUs in stock where our volumes are (pods can only run there), then elsewhere
   local vol_dcs data rows dc
   mapfile -t vol_dcs < <(volumes | jq -r '.[].dataCenterId')
-  data="$(graphql '{ gpuTypes { id displayName memoryInGb securePrice } dataCenters { id listed gpuAvailability { gpuTypeId stockStatus } } }')"
+  data="$(gpu_list)"
   # one row per GPU type and data center with stock: displayName, GB, price, data center, stock
-  rows="$(jq -r '(.gpuTypes | map({(.id): .}) | add) as $t | .dataCenters[] | select(.listed) | .id as $d
-    | .gpuAvailability[]? | select(.stockStatus != null and $t[.gpuTypeId] != null) | $t[.gpuTypeId] as $g
-    | [$g.displayName, $g.memoryInGb, $g.securePrice, $d, .stockStatus] | @tsv' <<< "$data" | sort -t $'\t' -k3,3n -k1,1)"
+  rows="$(jq -r '.[] | select(.secureCloud and .securePricePerHr != null) | . as $g
+    | [.dataCenterAvailability[]? | select(.stockStatus | IN("High", "Medium", "Low"))] | unique_by(.dataCenterId)[]
+    | [$g.displayName, $g.memoryInGb, $g.securePricePerHr, .dataCenterId, .stockStatus] | @tsv' <<< "$data" | sort -t $'\t' -k3,3n -k1,1)"
   for dc in ${vol_dcs[@]+"${vol_dcs[@]}"}; do
     echo "In $dc, where a network volume is:"
     awk -F'\t' -v dc="$dc" '$4 == dc {printf "  %s\t%s GB\t$%s/h\tstock: %s\n", $1, $2, $3, $5}' <<< "$rows" | column -t -s $'\t'
@@ -530,14 +558,14 @@ cmd_volume() {  # [grow GB [DATACENTER] | delete DATACENTER]
     (( gb > size )) || die "it is $size GB already; a volume can only grow"
     read -r -p "Grow $(jq -r '"\(.name) in \(.dataCenterId)"' <<< "$vol") from $size to $gb GB? It can't shrink again. [y/N] " answer
     [[ $answer == [yY]* ]] || exit 1
-    rest PATCH "/networkvolumes/$(jq -r .id <<< "$vol")" "$(jq -nc --argjson s "$gb" '{size: $s}')" |
+    rpctl network-volume update "$(jq -r .id <<< "$vol")" --size "$gb" |
       jq -r '"now \(.size) GB"'
     return
   fi
   ! check_pods || die "delete the pods first (./runpod.sh down)"
   read -r -p "Delete $(jq -r '"\(.name) in \(.dataCenterId)"' <<< "$vol") and everything on it (models, venv)? [y/N] " answer
   [[ $answer == [yY]* ]] || exit 1
-  rest DELETE "/networkvolumes/$(jq -r .id <<< "$vol")" > /dev/null && echo "deleted"
+  rpctl network-volume delete "$(jq -r .id <<< "$vol")" > /dev/null && echo "deleted"
 }
 
 # Read in full before running (bash otherwise reads a script as it goes), so editing this file or a git pull
@@ -550,8 +578,8 @@ case "${1:-}" in
   extend) shift; cmd_extend "$@" ;;
   down) cmd_down ;;
   status) check_pods || die "no pod rented"
-          while read -r id alias; do
-            rest GET "/pods/$id" | jq -c --arg a "$alias" '{alias: $a, id, desiredStatus, costPerHr, gpu: .gpu.displayName, lastStartedAt}'
+          while read -r id alias _; do
+            rpctl pod get "$id" | jq -c --arg a "$alias" '{alias: $a, id, desiredStatus, runtimeStatus, costPerHr, gpu: .gpuId, uptimeSeconds}'
           done < <(pods) ;;
   offers) cmd_offers ;;
   volume) shift; cmd_volume "$@" ;;

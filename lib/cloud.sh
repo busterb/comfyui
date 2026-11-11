@@ -4,6 +4,7 @@
 # DEADLINE_HINT (how to extend that) are optional; ComfyUI there reports them to the browser, which warns.
 # COMFYUI_ARGS (optional) are more arguments for run.sh there; $i in them is the instance number (see below).
 # INSTANCES (default 1): how many ComfyUI instances to run there, one per GPU, on ports 8188, 8189, ...
+# SETUP_ENV (optional): VAR=value settings for setup.sh there, e.g. SYSTEM_PYTHON=/usr/bin/python3.12.
 
 ssh_cmd() { ssh -F "$STATE/ssh_config" "$HOST_ALIAS" "$@"; }
 ssh_ready() {  # wait for a working (shared) connection, which later ssh_cmd calls then reuse
@@ -98,8 +99,8 @@ EOF
   ssh_cmd "bash -s" <<EOF
 set -euo pipefail
 cd $REMOTE_DIR
-./setup.sh --no-service > setup.log 2>&1 || { tail -30 setup.log; exit 1; }
-grep -E '^torch .* OK on' setup.log || true
+${SETUP_ENV:-} ./setup.sh --no-service > setup.log 2>&1 || { tail -30 setup.log; exit 1; }
+grep -E '^torch .* OK on|^torch loads from' setup.log || true
 n=${INSTANCES:-1}
 start() {  # I: start instance I unless it runs with these settings; one per GPU, port 8188 + I, log /root/comfyui-I.log
   local i=\$1 port=\$(( 8188 + \$1 )) pid gpu=

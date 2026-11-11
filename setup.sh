@@ -7,14 +7,17 @@
 #   ./setup.sh --recreate-venv
 #   TORCH_INDEX=cu128 ./setup.sh   force a PyTorch build (cu126, cu128, cu130, rocm, mps, cpu)
 #   PYTHON_VERSION=3.13 ./setup.sh  Python for the venv (default 3.12, what the workflows were tested with)
+#   SYSTEM_PYTHON=/usr/bin/python3.12 ./setup.sh   build the venv on that Python, and use the PyTorch installed
+#                            there if it works on this GPU (for container images that ship PyTorch, like RunPod's)
 #
-# The venv is built with uv on a uv-managed Python, independent of the system/Homebrew Python.
-# uv, its Python builds and its cache all live inside this directory (.uv/, .cache/uv).
+# The venv is built with uv on a uv-managed Python, independent of the system/Homebrew Python (unless
+# SYSTEM_PYTHON is set). uv, its Python builds and its cache all live inside this directory (.uv/, .cache/uv).
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="$PROJECT_DIR/.venv"
 PYTHON_VERSION="${PYTHON_VERSION:-3.12}"
+SYSTEM_PYTHON="${SYSTEM_PYTHON:-}"
 UV="$PROJECT_DIR/.uv/bin/uv"
 export UV_PYTHON_INSTALL_DIR="$PROJECT_DIR/.uv/python"
 export UV_CACHE_DIR="$PROJECT_DIR/.cache/uv"
@@ -37,7 +40,14 @@ ver_ge() { [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" == "$2" ]]; }
 say "Machine"
 OS="$(uname -s)" ARCH="$(uname -m)"
 command -v curl >/dev/null || die "curl not found"
-echo "os=$OS arch=$ARCH venv python=$PYTHON_VERSION (uv-managed)"
+if [[ -n $SYSTEM_PYTHON ]]; then
+  [[ -x $SYSTEM_PYTHON ]] || die "SYSTEM_PYTHON=$SYSTEM_PYTHON is not an executable"
+  PYTHON_VERSION="$("$SYSTEM_PYTHON" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
+  SYSTEM_PREFIX="$("$SYSTEM_PYTHON" -c 'import sys; print(sys.base_prefix)')"
+  echo "os=$OS arch=$ARCH venv python=$PYTHON_VERSION ($SYSTEM_PYTHON, with its packages)"
+else
+  echo "os=$OS arch=$ARCH venv python=$PYTHON_VERSION (uv-managed)"
+fi
 
 GPU_NAME="" CC="" VRAM_MB=0 DRIVER_CUDA="" UNIFIED_MB=0
 if [[ $OS == Darwin ]]; then
@@ -123,7 +133,11 @@ fi
 say "Python venv"
 if [[ -x $VENV/bin/python ]] && [[ $RECREATE == 0 ]]; then
   read -r VENV_PYV VENV_BASE < <("$VENV/bin/python" -c 'import sys; print("%d.%d" % sys.version_info[:2], sys.base_prefix)' 2>/dev/null || echo broken -)
-  if [[ $VENV_BASE != "$UV_PYTHON_INSTALL_DIR"/* ]]; then
+  SYSTEM_SITE="$(grep -qx 'include-system-site-packages = true' "$VENV/pyvenv.cfg" 2>/dev/null && echo 1 || echo 0)"
+  if [[ -n $SYSTEM_PYTHON ]] && { [[ $VENV_BASE != "$SYSTEM_PREFIX" ]] || [[ $SYSTEM_SITE == 0 ]]; }; then
+    echo "existing venv is not on $SYSTEM_PYTHON with its packages ($VENV_BASE); recreating"
+    RECREATE=1
+  elif [[ -z $SYSTEM_PYTHON ]] && { [[ $VENV_BASE != "$UV_PYTHON_INSTALL_DIR"/* ]] || [[ $SYSTEM_SITE == 1 ]]; }; then
     echo "existing venv is not on uv-managed Python ($VENV_BASE); recreating"
     RECREATE=1
   elif [[ $VENV_PYV != "$PYTHON_VERSION" ]]; then
@@ -135,13 +149,35 @@ if [[ -x $VENV/bin/python ]] && [[ $RECREATE == 0 ]]; then
 fi
 if [[ $RECREATE == 1 ]] || [[ ! -x $VENV/bin/python ]]; then
   run rm -rf "$VENV"
-  # --no-bin: don't add a python3.X command to ~/.local/bin; only this project uses it
-  run "$UV" python install --no-bin "$PYTHON_VERSION"
-  # --seed adds pip: ComfyUI-Manager runs `python -m pip` to install custom node dependencies
-  run "$UV" venv --seed --python "$PYTHON_VERSION" "$VENV"
+  if [[ -n $SYSTEM_PYTHON ]]; then
+    # --seed adds pip: ComfyUI-Manager runs `python -m pip` to install custom node dependencies
+    run "$UV" venv --seed --system-site-packages --python "$SYSTEM_PYTHON" "$VENV"
+  else
+    # --no-bin: don't add a python3.X command to ~/.local/bin; only this project uses it
+    run "$UV" python install --no-bin "$PYTHON_VERSION"
+    run "$UV" venv --seed --python "$PYTHON_VERSION" "$VENV"
+  fi
+fi
+# SYSTEM_PYTHON: use its PyTorch when it runs on this GPU, and keep uv from installing a second one in the venv
+# (uv doesn't count system packages as installed; --excludes also drops torch when it's only a dependency)
+EXCLUDES=()
+SYSTEM_TORCH=""
+if [[ -n $SYSTEM_PYTHON ]] && [[ $DRY_RUN == 0 ]] && [[ $TORCH_INDEX != cpu ]] && [[ $TORCH_INDEX != mps ]]; then
+  SYSTEM_TORCH="$("$SYSTEM_PYTHON" -c 'import torch, torchvision; x = torch.randn(256, 256, device="cuda"); (x @ x).sum().item(); print(torch.__version__)' 2>/dev/null || true)"
+  if [[ -n $SYSTEM_TORCH ]]; then
+    mkdir -p "$PROJECT_DIR/.tmp"
+    printf '%s\n' torch torchvision torchaudio > "$PROJECT_DIR/.tmp/setup-excludes.txt"
+    EXCLUDES=(--excludes "$PROJECT_DIR/.tmp/setup-excludes.txt")
+    # an older venv may still have its own copy, which would win over the system one
+    "$VENV/bin/python" -m pip uninstall -y -q torch torchvision torchaudio 2>/dev/null || true
+  else
+    echo "$SYSTEM_PYTHON has no PyTorch that works on this GPU; installing one in the venv"
+  fi
 fi
 CURRENT_TORCH="$("$VENV/bin/python" -c 'import torch, torchvision; print(torch.__version__)' 2>/dev/null || true)"
-if [[ $CURRENT_TORCH == *"+$TORCH_INDEX"* ]] || [[ $TORCH_INDEX == mps && -n $CURRENT_TORCH && $CURRENT_TORCH != *+* ]]; then
+if [[ -n $SYSTEM_TORCH ]]; then
+  echo "torch $SYSTEM_TORCH from $SYSTEM_PYTHON"
+elif [[ $CURRENT_TORCH == *"+$TORCH_INDEX"* ]] || [[ $TORCH_INDEX == mps && -n $CURRENT_TORCH && $CURRENT_TORCH != *+* ]]; then
   echo "torch $CURRENT_TORCH already installed"
 elif [[ $TORCH_INDEX == mps ]]; then
   # the macOS wheels on PyPI include MPS; they carry no +local version tag
@@ -156,11 +192,17 @@ elif [[ $TORCH_INDEX == rocm ]]; then
 else
   run "$UV" pip install --python "$VENV" torch torchvision torchaudio --index-url "https://download.pytorch.org/whl/$TORCH_INDEX"
 fi
-run "$UV" pip install --python "$VENV" -r "$PROJECT_DIR/ComfyUI/requirements.txt" -r "$PROJECT_DIR/ComfyUI/manager_requirements.txt"
+run "$UV" pip install --python "$VENV" -r "$PROJECT_DIR/ComfyUI/requirements.txt" -r "$PROJECT_DIR/ComfyUI/manager_requirements.txt" \
+  ${EXCLUDES[@]+"${EXCLUDES[@]}"}
 if [[ $DRY_RUN == 0 ]] && [[ $TORCH_INDEX == mps ]]; then
   "$VENV/bin/python" -c 'import torch; assert torch.backends.mps.is_available(), "MPS not available"; x = torch.randn(256, 256, device="mps"); (x @ x).sum().item(); print("torch", torch.__version__, "OK on MPS")'
 elif [[ $DRY_RUN == 0 ]] && [[ $TORCH_INDEX != cpu ]]; then
   "$VENV/bin/python" -c 'import torch; assert torch.cuda.is_available(), "CUDA not available"; x = torch.randn(256, 256, device="cuda"); (x @ x).sum().item(); print("torch", torch.__version__, "OK on", torch.cuda.get_device_name(0))'
+fi
+if [[ -n $SYSTEM_TORCH ]]; then
+  TORCH_FILE="$("$VENV/bin/python" -c 'import torch; print(torch.__file__)')"
+  [[ $TORCH_FILE != "$VENV"/* ]] || die "the venv got its own PyTorch ($TORCH_FILE) despite SYSTEM_PYTHON"
+  echo "torch loads from $(dirname "$TORCH_FILE")"
 fi
 
 say "Project directories"
