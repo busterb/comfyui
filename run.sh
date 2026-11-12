@@ -42,6 +42,12 @@ if [[ "$(uname -s)" == Darwin ]] && [[ " $* " != *" --cpu "* ]]; then
   EXTRA_ARGS+=(--use-pytorch-cross-attention)
 fi
 
+# DGX Spark / GB10 (unified memory): cudaMallocAsync fails with "cuMemFreeAsync ... CUDA_ERROR_INVALID_VALUE" once a
+# training run fills memory, aborting ComfyUI. The native allocator survives it.
+if command -v nvidia-smi >/dev/null && nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | grep -q GB10; then
+  EXTRA_ARGS+=(--disable-cuda-malloc)
+fi
+
 cd "$PROJECT_DIR/ComfyUI"
 exec "$PYTHON" main.py \
   --listen 127.0.0.1 \

@@ -202,12 +202,14 @@ def caption_prompt(image, trigger, kind):
 def train_prompt(folder, name, a):
     return {
         "1": {"class_type": "UNETLoader", "inputs": {"unet_name": BASE_MODEL, "weight_dtype": "default"}},
+        # the prefix K/V cache is sized for the whole dataset but training runs one photo at a time: split_with_sizes error
+        "8": {"class_type": "QwenImage21Cache", "inputs": {"model": ["1", 0], "device": "off", "dtype": "default"}},
         "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen3vl_8b_bf16.safetensors", "type": "qwen_image", "device": "default"}},
         "3": {"class_type": "VAELoader", "inputs": {"vae_name": "qwen_image_2.1_vae_bf16.safetensors"}},
         "4": {"class_type": "LoadImageTextDataSetFromFolder", "inputs": {"folder": folder}},
         "5": {"class_type": "MakeTrainingDataset", "inputs": {"images": ["4", 0], "texts": ["4", 1], "vae": ["3", 0], "clip": ["2", 0]}},
         "6": {"class_type": "TrainLoraNode", "inputs": {
-            "model": ["1", 0], "latents": ["5", 0], "positive": ["5", 1], "batch_size": 1, "grad_accumulation_steps": 1,
+            "model": ["8", 0], "latents": ["5", 0], "positive": ["5", 1], "batch_size": 1, "grad_accumulation_steps": 1,
             "steps": a.steps, "learning_rate": a.learning_rate, "rank": a.rank, "optimizer": "AdamW", "loss_function": "MSE",
             "seed": a.seed, "training_dtype": "bf16", "lora_dtype": "bf16", "quantized_backward": False, "algorithm": "LoRA",
             "gradient_checkpointing": True, "checkpoint_depth": 1, "offloading": False, "existing_lora": "[None]",
@@ -242,7 +244,7 @@ async def cmd_train(a):
         die(f"no caption for {', '.join(uncaptioned)}: run ./lora.sh caption first, or write them (or --no-captions)")
     # The dataset as uploaded: scaled photos and their captions. A folder per content, so photos removed here
     # aren't left behind in the training set there.
-    dataset = [(p.stem + ".jpg", scaled_jpeg(p), (p.with_suffix(".txt").read_text().strip() if p.with_suffix(".txt").exists() else ""))
+    dataset = [(p.stem + ".jpg", scaled_jpeg(p, a.pixels), (p.with_suffix(".txt").read_text().strip() if p.with_suffix(".txt").exists() else ""))
                for p in files]
     digest = hashlib.sha256(json.dumps([(n, hashlib.sha256(d).hexdigest(), c) for n, d, c in dataset]).encode()).hexdigest()[:10]
     folder = f"lora/{a.name}-{digest}"
@@ -291,6 +293,7 @@ def main():
             c.add_argument("--steps", type=int, default=2000, help="training steps (default 2000, about 100 per photo)")
             c.add_argument("--rank", type=int, default=16, help="LoRA rank (default 16)")
             c.add_argument("--learning-rate", type=float, default=1e-4, help="(default 0.0001)")
+            c.add_argument("--pixels", type=int, default=TRAIN_PIXELS, help="pixels per photo (default 1048576, 1024x1024); try 589824 (768x768) if training runs out of memory")
             c.add_argument("--seed", type=int, default=0)
             c.add_argument("--no-captions", action="store_true", help="train photos without a caption on an empty one")
     a = p.parse_args()
