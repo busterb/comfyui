@@ -76,12 +76,18 @@ included; install it into `ComfyUI/custom_nodes/` yourself.
   style from a reference image. Three versions: standard and Turbo (Qwen-Image 2.1) and 8GB (FLUX.2 Klein,
   for 8 GB GPUs). Each comes as "1 image" and "main + reference"; Turbo also has a "batch folder" version that
   edits every image in a folder.
+- **Character Edit H3**: the same kind of edit with MiniMax H3 Image, at 4 MP or more. Needs a GB10-class
+  machine. Comes as "1 image" and "main + reference". A Qwen 3.5 prompt enhancer is on by default.
+- **Character Edit H3 API**: MiniMax H3 Image on MiniMax's servers, through ComfyUI's partner nodes. No GPU
+  needed, but it costs comfy.org credits for each image.
+- **Character Image H3 - text to image**: a new picture of a character from a description, with MiniMax H3
+  Image. Needs a GB10-class machine.
 - **Character Video - H3 image to video**: MiniMax H3 image to video, with generated sound. Needs a GB10-class
   machine. The **(Mac)** version uses model files Apple GPUs can load and runs the text encoder on the CPU.
 - **Character Video - Wan 2.2 5B / 14B image to video**: silent clips. The 14B version keeps the character's
   identity much better.
 
-Each workflow has a "How to use" note below its nodes. The video workflows also list their model links.
+Each workflow has a "How to use" note below its nodes. The video and H3 workflows also list their model links.
 
 ## Character LoRAs
 

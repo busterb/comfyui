@@ -83,7 +83,7 @@ EOF
     done
     if (( ${#send[@]} )); then
       say "Copying ${#send[@]} character LoRA(s) there"
-      tar -C "$loras" -cf - "${send[@]}" | ssh_cmd "tar -C $REMOTE_DIR/ComfyUI/models/loras/characters -xf -"
+      tar -C "$loras" -cf - "${send[@]}" | ssh_cmd "tar -C $REMOTE_DIR/ComfyUI/models/loras/characters --no-same-owner -xf -"
     fi
   fi
 
